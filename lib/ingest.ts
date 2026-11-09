@@ -2,22 +2,24 @@ import { DEFAULT_INGEST_URL } from "./targets";
 import type { IngestResult, PlatformVotes, ProbeSuccess, SongReading } from "./types";
 
 export type IngestArtistRecord = {
+  artist: string;
   title: string;
   rank: number | null;
   totalVotes: number | null;
+  votes: number | null;
   sourceUpdateText: string | null;
   collectedAtUtc: string;
   collectedAtBeijing: string;
   platforms: PlatformVotes;
 };
 
-export type IngestPayload = Record<string, IngestArtistRecord>;
-
-function recordFor(song: SongReading, result: ProbeSuccess): IngestArtistRecord {
-  return {
+export function buildIngestRecords(result: ProbeSuccess): IngestArtistRecord[] {
+  return result.songs.map((song: SongReading) => ({
+    artist: song.artist,
     title: song.title,
     rank: song.rank,
     totalVotes: song.totalVotes,
+    votes: song.totalVotes,
     sourceUpdateText: result.sourceUpdateText,
     collectedAtUtc: result.collectedAtUtc,
     collectedAtBeijing: result.collectedAtBeijing,
@@ -26,15 +28,30 @@ function recordFor(song: SongReading, result: ProbeSuccess): IngestArtistRecord 
       kugou: song.platforms.kugou,
       qqMusic: song.platforms.qqMusic,
     },
-  };
+  }));
 }
 
-export function buildIngestPayload(result: ProbeSuccess): IngestPayload {
-  const payload: IngestPayload = {};
-  for (const song of result.songs) {
-    payload[song.artist] = recordFor(song, result);
+async function postOne(
+  url: string,
+  token: string,
+  record: IngestArtistRecord,
+): Promise<{ status: number; body: string }> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 12_000);
+  try {
+    const response = await fetch(url, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(record),
+      signal: controller.signal,
+    });
+    return { status: response.status, body: (await response.text()).slice(0, 1000) };
+  } finally {
+    clearTimeout(timer);
   }
-  return payload;
 }
 
 export async function postIngest(result: ProbeSuccess): Promise<IngestResult> {
@@ -51,27 +68,24 @@ export async function postIngest(result: ProbeSuccess): Promise<IngestResult> {
   }
 
   const url = process.env.INGEST_URL || DEFAULT_INGEST_URL;
-  const payload = buildIngestPayload(result);
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), 12_000);
+  const records = buildIngestRecords(result);
+  const parts: string[] = [];
+  let ok = true;
+  let lastStatus: number | null = null;
   try {
-    const response = await fetch(url, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${token}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(payload),
-      signal: controller.signal,
-    });
-    const text = await response.text();
+    for (const record of records) {
+      const posted = await postOne(url, token, record);
+      lastStatus = posted.status;
+      parts.push(`${record.artist}:${posted.status}:${posted.body}`);
+      if (posted.status < 200 || posted.status >= 300) ok = false;
+    }
     return {
       attempted: true,
-      ok: response.ok,
+      ok,
       skipped: false,
-      reason: response.ok ? null : `ingest HTTP ${response.status}`,
-      status: response.status,
-      body: text.slice(0, 2000),
+      reason: ok ? null : "ingest HTTP error",
+      status: lastStatus,
+      body: parts.join(" | ").slice(0, 2000),
     };
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
@@ -80,10 +94,8 @@ export async function postIngest(result: ProbeSuccess): Promise<IngestResult> {
       ok: false,
       skipped: false,
       reason: message,
-      status: null,
-      body: null,
+      status: lastStatus,
+      body: parts.join(" | ").slice(0, 2000) || null,
     };
-  } finally {
-    clearTimeout(timer);
   }
 }

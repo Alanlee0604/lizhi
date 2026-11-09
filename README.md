@@ -72,28 +72,19 @@ export default {
 
 浏览器调试可另加 `x-vercel-set-bypass-cookie: true`。调试截图用 `POST /api/probe?screenshot=1`。
 
-成功后 Function 会把两人总票/排名/源更新时间/可见平台分项 POST 到 `https://votes.alan0828.cloud/api/ingest`，使用 `Authorization: Bearer $INGEST_TOKEN`。截图不会入库。ingest 正文只使用顶层键 `黄灿灿` 与 `安崎`（现网接口返回「只接受安崎或黄灿灿」）：
+成功后 Function 会对每位艺人各 POST 一次 `https://votes.alan0828.cloud/api/ingest`（`Authorization: Bearer $INGEST_TOKEN`）。现网对非「安崎/黄灿灿」的 `artist` 返回 400。截图不会入库。
 
 ```json
 {
-  "黄灿灿": {
-    "title": "早上坏",
-    "rank": 1,
-    "totalVotes": 51571,
-    "sourceUpdateText": "更新至17:30",
-    "collectedAtUtc": "2026-11-09T09:42:57.861Z",
-    "collectedAtBeijing": "2026/11/09 17:42:57",
-    "platforms": { "lizhi": null, "kugou": null, "qqMusic": null }
-  },
-  "安崎": {
-    "title": "Ice In My Walk",
-    "rank": 2,
-    "totalVotes": 25818,
-    "sourceUpdateText": "更新至17:30",
-    "collectedAtUtc": "2026-11-09T09:42:57.861Z",
-    "collectedAtBeijing": "2026/11/09 17:42:57",
-    "platforms": { "lizhi": null, "kugou": null, "qqMusic": null }
-  }
+  "artist": "黄灿灿",
+  "title": "早上坏",
+  "rank": 1,
+  "totalVotes": 51981,
+  "votes": 51981,
+  "sourceUpdateText": "更新至17:40",
+  "collectedAtUtc": "2026-11-09T09:44:37.202Z",
+  "collectedAtBeijing": "2026/11/09 17:44:37",
+  "platforms": { "lizhi": null, "kugou": null, "qqMusic": null }
 }
 ```
 
