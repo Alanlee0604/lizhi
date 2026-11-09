@@ -23,7 +23,7 @@ export type ObservationArtist = {
   rank: number | null;
   platforms: PlatformVotes;
   sourceDisplayedUpdatedAt: string;
-  collectedAt: string;
+  collectedAt: string | null;
   origin: string | null;
   liveCollector: boolean | null;
   provenance: {
