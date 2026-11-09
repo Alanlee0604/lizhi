@@ -31,7 +31,7 @@ export function HistoryDashboard({ history }: { history: HistoryPayload }) {
         <p className="lede">
           只追踪这两人。页面只读共享原库 <code>{architecture.source}</code>
           ，<strong>不是迁库、不是复制搬库</strong>。折线横轴是<strong>检查时间（约每 {OBSERVATION_CADENCE_MINUTES}{" "}
-          分钟）</strong>，与<strong>源站更新时间（目前约 10 分钟一跳）</strong>不是同一件事。分项缺失显示「未提供」，缺检查显示「缺口」，都不会写成 0。
+          分钟）</strong>，与<strong>源站更新时间（目前约 10 分钟一跳）</strong>不是同一件事。分项缺失显示「未采集到」并给出原因，缺检查显示「缺口」，都不会写成 0，也不断言腾讯未提供。
         </p>
         <p className="meta">
           本页刷新 {history.fetchedAtBeijing}（北京时间）· 检查 {counts.observations} 轮（
@@ -76,14 +76,23 @@ export function HistoryDashboard({ history }: { history: HistoryPayload }) {
                 <div>
                   <dt>ai荔枝</dt>
                   <dd>{latest ? displayCount(latest.platforms.aiLizhi) : "缺口"}</dd>
+                  {latest && latest.platforms.aiLizhi == null && artist.platformMissReason ? (
+                    <p className="reason">{artist.platformMissReason}</p>
+                  ) : null}
                 </div>
                 <div>
                   <dt>酷狗</dt>
                   <dd>{latest ? displayCount(latest.platforms.kugou) : "缺口"}</dd>
+                  {latest && latest.platforms.kugou == null && artist.platformMissReason ? (
+                    <p className="reason">{artist.platformMissReason}</p>
+                  ) : null}
                 </div>
                 <div>
                   <dt>QQ音乐</dt>
                   <dd>{latest ? displayCount(latest.platforms.qqMusic) : "缺口"}</dd>
+                  {latest && latest.platforms.qqMusic == null && artist.platformMissReason ? (
+                    <p className="reason">{artist.platformMissReason}</p>
+                  ) : null}
                 </div>
               </dl>
               <p className="muted">
@@ -100,7 +109,7 @@ export function HistoryDashboard({ history }: { history: HistoryPayload }) {
         <h2>历史趋势（2 分钟检查）</h2>
         <p className="muted">
           按检查时间排列，同一源更新时间的重复 200 检查仍保留该轮票数。可勾选实际总票 / 爱荔枝 / 酷狗 / QQ音乐。历史 attempts
-          若无 obsj 则三端为未提供，不从后来快照回填。失败/null 断线，不画成 0。
+          若无 obsj 则三端为未采集到，不从后来快照回填。失败/null 断线，不画成 0。
         </p>
         <TrendChart observations={observations} />
       </section>

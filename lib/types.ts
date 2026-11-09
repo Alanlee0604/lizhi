@@ -22,6 +22,7 @@ export type SongReading = {
   rank: number | null;
   totalVotes: number | null;
   platforms: PlatformVotes;
+  platformMiss: string | null;
 };
 
 export type Restriction = {

@@ -1,4 +1,5 @@
 import { buildObservationRows, OBSERVATION_CADENCE_MINUTES, type ObservationRow } from "./observations";
+import { platformMissLabel, platformsAllNumeric } from "./platform-miss";
 import { DEFAULT_STATE_URL } from "./targets";
 import { beijingNow } from "./time";
 import type { ArtistId } from "./types";
@@ -49,6 +50,7 @@ export type HistoryArtistView = {
     liveCollector: boolean | null;
   } | null;
   deltas: { total: number | null; rank: number | null } | null;
+  platformMissReason: string | null;
 };
 
 export type CollectionGap = {
@@ -138,12 +140,12 @@ export function originLabel(origin: string | null | undefined, liveCollector: bo
 }
 
 export function displayCount(value: number | null | undefined): string {
-  if (value == null) return "未提供";
+  if (value == null) return "未采集到";
   return value.toLocaleString("zh-CN");
 }
 
 export function displayRank(value: number | null | undefined): string {
-  if (value == null) return "未提供";
+  if (value == null) return "未采集到";
   return String(value);
 }
 
@@ -291,6 +293,54 @@ function artistView(raw: unknown, artistId: ArtistId, fallbackName: string, snap
         }
       : null,
     deltas: deltas ? { total: asNumberOrNull(deltas.total), rank: asNumberOrNull(deltas.rank) } : null,
+    platformMissReason: null,
+  };
+}
+
+export function overlayObservationPlatforms(
+  artist: HistoryArtistView,
+  observations: ObservationRow[],
+): HistoryArtistView {
+  const obs = observations[0]?.[artist.artistId] || null;
+  if (!artist.latest) {
+    return { ...artist, platformMissReason: null };
+  }
+  if (!obs) {
+    return {
+      ...artist,
+      platformMissReason: platformsAllNumeric(artist.latest.platforms)
+        ? null
+        : "当前快照没有三端实读记录（不是断言源站未提供）",
+    };
+  }
+  if (!obs.platformsStructured) {
+    return {
+      ...artist,
+      latest: {
+        ...artist.latest,
+        platforms: { aiLizhi: null, kugou: null, qqMusic: null },
+        collectedAt: obs.collectedAt || artist.latest.collectedAt,
+      },
+      platformMissReason: platformMissLabel("unstructured_total_only"),
+    };
+  }
+  return {
+    ...artist,
+    latest: {
+      ...artist.latest,
+      platforms: obs.platforms,
+      collectedAt: obs.collectedAt || artist.latest.collectedAt,
+      provenance: {
+        ...artist.latest.provenance,
+        notes: obs.provenance.notes,
+        rawExcerpt: obs.provenance.rawExcerpt,
+      },
+    },
+    platformMissReason: obs.platformMiss
+      ? platformMissLabel(obs.platformMiss)
+      : platformsAllNumeric(obs.platforms)
+        ? null
+        : "总榜已读，该轮未采到三端（不是断言腾讯未提供）",
   };
 }
 
@@ -359,8 +409,8 @@ export function buildHistoryPayload(state: unknown, source = DEFAULT_STATE_URL):
       attemptsReturned,
     },
     artists: [
-      artistView(views.huangcancan, "huangcancan", "黄灿灿", snapshots),
-      artistView(views.anqi, "anqi", "安崎", snapshots),
+      overlayObservationPlatforms(artistView(views.huangcancan, "huangcancan", "黄灿灿", snapshots), observations),
+      overlayObservationPlatforms(artistView(views.anqi, "anqi", "安崎", snapshots), observations),
     ],
     timeline,
     observations,

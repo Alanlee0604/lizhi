@@ -27,6 +27,7 @@ function sample(): ProbeSuccess {
         rank: 1,
         totalVotes: 51008,
         platforms: { aiLizhi: null, kugou: null, qqMusic: null },
+        platformMiss: "not_attempted_detail",
       },
       {
         id: "anqi-ice-in-my-walk",
@@ -37,6 +38,7 @@ function sample(): ProbeSuccess {
         rank: 2,
         totalVotes: 25457,
         platforms: { aiLizhi: null, kugou: 12, qqMusic: null },
+        platformMiss: null,
       },
     ],
     restriction: null,
@@ -65,8 +67,9 @@ describe("ingest payload", () => {
     assert.equal(records[1]?.artistId, "anqi");
     assert.equal(records[1]?.platforms.kugou, 12);
     assert.equal(records[1]?.platforms.qqMusic, null);
-    assert.match(records[0]?.rawExcerpt || "", /obsj:\{"aiLizhi":null,"kugou":null,"qqMusic":null\}/);
+    assert.match(records[0]?.rawExcerpt || "", /obsj:\{"aiLizhi":null,"kugou":null,"qqMusic":null,"miss":"not_attempted_detail"\}/);
     assert.match(records[1]?.rawExcerpt || "", /obsj:\{"aiLizhi":null,"kugou":12,"qqMusic":null\}/);
+    assert.match(records[0]?.notes || "", /not_attempted_detail/);
     assert.equal("artist" in (records[0] || {}), false);
     assert.equal("lizhi" in (records[0]?.platforms || {}), false);
   });

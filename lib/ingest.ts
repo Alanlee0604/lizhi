@@ -61,7 +61,9 @@ export function buildIngestRecords(result: ProbeSuccess): IngestArtistRecord[] {
       liveCollector: true,
       observer: "vercel_function_chromium",
       sourceId: "yobang-x-plan-p9",
-      notes: "visible public chart DOM; missing platform counts left null, not 0; obsj in rawExcerpt is this-round platforms",
+      notes: song.platformMiss
+        ? `visible public chart + song-detail DOM; 三端未采集到：${song.platformMiss}；null 不是 0，不断言腾讯未提供`
+        : "visible public chart + song-detail DOM; obsj in rawExcerpt is this-round platforms from the public detail page",
       rawExcerpt: encodeObservationExcerpt({
         sourceUpdateText: result.sourceUpdateText,
         artist: song.artist,
@@ -69,6 +71,7 @@ export function buildIngestRecords(result: ProbeSuccess): IngestArtistRecord[] {
         rank: isPositiveInt(song.rank) ? song.rank : null,
         total: song.totalVotes,
         platforms: platformsFor(song),
+        miss: song.platformMiss,
       }),
     });
   }

@@ -108,6 +108,42 @@ export function parsePlatformVotes(block: string): PlatformVotes {
   return result;
 }
 
+export function parseDetailPlatformVotes(visibleText: string): PlatformVotes {
+  const read = (pattern: RegExp): number | null => {
+    const match = visibleText.match(pattern);
+    return match ? parseVoteNumber(match[1]) : null;
+  };
+  return {
+    aiLizhi: read(/ai\s*荔枝\s*[:：]?\s*([\d,]+)\s*票/i),
+    kugou: read(/酷狗(?:音乐)?\s*[:：]?\s*([\d,]+)\s*票/),
+    qqMusic: read(/QQ\s*音乐\s*[:：]?\s*([\d,]+)\s*票/i),
+  };
+}
+
+export function parseSongDetail(
+  visibleText: string,
+  target: { title: string; artist: string },
+): {
+  found: boolean;
+  totalVotes: number | null;
+  rank: number | null;
+  sourceUpdateText: string | null;
+  platforms: PlatformVotes;
+} {
+  const found = visibleText.includes(target.title) && visibleText.includes(target.artist);
+  const afterTitle = found ? visibleText.slice(visibleText.indexOf(target.title)) : visibleText;
+  const totalMatch = afterTitle.match(/([\d,]+)\s*\n\s*票/);
+  const rankMatch = visibleText.match(/NO\.\s*(\d+)/i);
+  const updated = visibleText.match(/(\d{1,2}:\d{2})\s*已更新/);
+  return {
+    found,
+    totalVotes: totalMatch ? parseVoteNumber(totalMatch[1]) : null,
+    rank: rankMatch && Number.isInteger(Number(rankMatch[1])) ? Number(rankMatch[1]) : null,
+    sourceUpdateText: updated ? `更新至${updated[1]}` : null,
+    platforms: parseDetailPlatformVotes(visibleText),
+  };
+}
+
 export function readTargetSongs(visibleText: string): {
   zoneText: string | null;
   sourceUpdateText: string | null;
@@ -127,6 +163,7 @@ export function readTargetSongs(visibleText: string): {
         rank: null,
         totalVotes: null,
         platforms: { aiLizhi: null, kugou: null, qqMusic: null },
+        platformMiss: "not_attempted_detail",
       };
     }
     return {
@@ -135,6 +172,7 @@ export function readTargetSongs(visibleText: string): {
       rank: row.rank,
       totalVotes: row.totalVotes,
       platforms: parsePlatformVotes(row.block),
+      platformMiss: "not_attempted_detail",
     };
   });
   return { zoneText, sourceUpdateText, songs };

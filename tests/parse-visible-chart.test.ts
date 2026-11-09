@@ -4,7 +4,9 @@ import { describe, it } from "node:test";
 import {
   extractFreshHitZone,
   looksLikeRestriction,
+  parseDetailPlatformVotes,
   parsePlatformVotes,
+  parseSongDetail,
   parseSourceUpdateText,
   readTargetSongs,
 } from "../lib/parse-visible-chart";
@@ -63,5 +65,30 @@ describe("parse visible 鲜打专区 text", () => {
 
   it("reads 更新至 clock text from the zone", () => {
     assert.equal(parseSourceUpdateText(fixture), "更新至17:00");
+  });
+});
+
+const detailFixture = readFileSync(
+  new URL("../fixtures/song-detail-visible-2026-11-09T1934-beijing.txt", import.meta.url),
+  "utf8",
+);
+
+describe("parse public song-detail text", () => {
+  it("reads ai荔枝 / 酷狗 / QQ音乐 from the detail page, not from 我的余票 0", () => {
+    const parsed = parseSongDetail(detailFixture, { title: "早上坏", artist: "黄灿灿" });
+    assert.equal(parsed.found, true);
+    assert.equal(parsed.totalVotes, 58681);
+    assert.equal(parsed.rank, 1);
+    assert.equal(parsed.sourceUpdateText, "更新至19:30");
+    assert.deepEqual(parsed.platforms, { aiLizhi: 24993, kugou: 9267, qqMusic: 24421 });
+    assert.equal(parsed.platforms.aiLizhi! + parsed.platforms.kugou! + parsed.platforms.qqMusic!, 58681);
+  });
+
+  it("does not treat 酷狗音乐为TA投票 as a kugou count", () => {
+    assert.deepEqual(parseDetailPlatformVotes("去酷狗音乐为TA投票\n我的余票\n0\n票"), {
+      aiLizhi: null,
+      kugou: null,
+      qqMusic: null,
+    });
   });
 });

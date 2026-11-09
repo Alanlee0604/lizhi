@@ -77,7 +77,7 @@ export function TrendChart({ observations }: { observations: ObservationRow[] })
         })}
       </fieldset>
       {lines.nums.length === 0 ? (
-        <p className="muted">所选指标在这些检查时间上都是缺口，没有可连的点。不会把未提供画成 0。</p>
+        <p className="muted">所选指标在这些检查时间上都是缺口，没有可连的点。不会把未采集到画成 0。</p>
       ) : (
         <svg
           viewBox={`0 0 ${WIDTH} ${HEIGHT}`}

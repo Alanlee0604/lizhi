@@ -1,5 +1,6 @@
-import type { ArtistId, PlatformVotes } from "./types";
+import { platformMissLabel } from "./platform-miss";
 import { combineShanghaiClock } from "./source-time";
+import type { ArtistId, PlatformVotes } from "./types";
 
 function formatShanghai(iso: string | null | undefined): string | null {
   if (!iso) return null;
@@ -22,6 +23,8 @@ export type ObservationArtist = {
   total: number | null;
   rank: number | null;
   platforms: PlatformVotes;
+  platformsStructured: boolean;
+  platformMiss: string | null;
   sourceDisplayedUpdatedAt: string;
   collectedAt: string | null;
   origin: string | null;
@@ -58,6 +61,7 @@ export type ParsedAttemptReading = {
   sourceUpdateText: string | null;
   platforms: PlatformVotes;
   platformsStructured: boolean;
+  platformMiss: string | null;
   message: string | null;
   rawExcerpt: string;
 };
@@ -71,13 +75,15 @@ export function encodeObservationExcerpt(input: {
   rank: number | null;
   total: number;
   platforms: PlatformVotes;
+  miss?: string | null;
 }): string {
-  const payload = JSON.stringify({
+  const payload: Record<string, number | null | string> = {
     aiLizhi: input.platforms.aiLizhi,
     kugou: input.platforms.kugou,
     qqMusic: input.platforms.qqMusic,
-  });
-  return `${input.sourceUpdateText || ""} ${input.artist} ${input.title} rank=${input.rank} total=${input.total} ${OBSJ_MARK}${payload}`.trim().slice(0, 4000);
+  };
+  if (input.miss) payload.miss = input.miss;
+  return `${input.sourceUpdateText || ""} ${input.artist} ${input.title} rank=${input.rank} total=${input.total} ${OBSJ_MARK}${JSON.stringify(payload)}`.trim().slice(0, 4000);
 }
 
 function asArtistId(value: string | null | undefined): ArtistId | null {
@@ -87,21 +93,23 @@ function asArtistId(value: string | null | undefined): ArtistId | null {
   return null;
 }
 
-function parsePlatformsJson(raw: string): { platforms: PlatformVotes; structured: boolean } {
+function parsePlatformsJson(raw: string): { platforms: PlatformVotes; structured: boolean; miss: string | null } {
   const index = raw.indexOf(OBSJ_MARK);
-  if (index < 0) return { platforms: { ...EMPTY_PLATFORMS }, structured: false };
+  if (index < 0) return { platforms: { ...EMPTY_PLATFORMS }, structured: false, miss: "unstructured_total_only" };
   try {
     const parsed = JSON.parse(raw.slice(index + OBSJ_MARK.length).trim()) as Record<string, unknown>;
     const read = (key: keyof PlatformVotes): number | null => {
       const value = parsed[key];
       return typeof value === "number" && Number.isFinite(value) ? value : null;
     };
+    const miss = typeof parsed.miss === "string" && parsed.miss.trim() ? parsed.miss.trim() : null;
     return {
       platforms: { aiLizhi: read("aiLizhi"), kugou: read("kugou"), qqMusic: read("qqMusic") },
       structured: true,
+      miss,
     };
   } catch {
-    return { platforms: { ...EMPTY_PLATFORMS }, structured: false };
+    return { platforms: { ...EMPTY_PLATFORMS }, structured: false, miss: "unstructured_total_only" };
   }
 }
 
@@ -130,7 +138,7 @@ export function parseAttemptReading(raw: unknown): ParsedAttemptReading | null {
   if (!sourceDisplayedUpdatedAt) return null;
 
   const clock = excerpt.match(/更新至\s*(\d{1,2}:\d{2})/);
-  const { platforms, structured } = parsePlatformsJson(excerpt);
+  const { platforms, structured, miss } = parsePlatformsJson(excerpt);
   return {
     attemptId: typeof row.id === "string" && row.id.trim() ? row.id : `${artistId}::${at}`,
     at,
@@ -141,6 +149,7 @@ export function parseAttemptReading(raw: unknown): ParsedAttemptReading | null {
     sourceUpdateText: clock ? `更新至${clock[1]}` : null,
     platforms,
     platformsStructured: structured,
+    platformMiss: miss,
     message,
     rawExcerpt: excerpt,
   };
@@ -153,6 +162,8 @@ export function snapshotFromAttempt(reading: ParsedAttemptReading): ObservationA
     total: reading.total,
     rank: reading.rank,
     platforms: reading.platforms,
+    platformsStructured: reading.platformsStructured,
+    platformMiss: reading.platformMiss,
     sourceDisplayedUpdatedAt: reading.sourceDisplayedUpdatedAt || reading.at,
     collectedAt: reading.at,
     origin: "public_html",
@@ -160,8 +171,10 @@ export function snapshotFromAttempt(reading: ParsedAttemptReading): ObservationA
     provenance: {
       observer: "votes_attempt",
       notes: reading.platformsStructured
-        ? "attempt.rawExcerpt 含本轮 obsj 四项"
-        : "attempt.rawExcerpt 仅有本轮 total/rank/源时间；三端未随该轮结构化记录，保持未提供，不从后来快照回填",
+        ? reading.platformMiss
+          ? `attempt.rawExcerpt 含本轮 obsj；三端未采集到：${platformMissLabel(reading.platformMiss)}`
+          : "attempt.rawExcerpt 含本轮 obsj 详情实读"
+        : "attempt.rawExcerpt 仅有本轮 total/rank/源时间；三端未随该轮结构化记录，显示未采集到，不从后来快照回填",
       rawExcerpt: reading.rawExcerpt,
       sourceId: "yobang-x-plan-p9",
     },

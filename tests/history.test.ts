@@ -8,11 +8,13 @@ import {
   collectionGapsOf,
   displayCount,
   originLabel,
+  overlayObservationPlatforms,
   platformCell,
   platformFill,
   resolveStateUrl,
   type HistorySnapshot,
 } from "../lib/history";
+import { encodeObservationExcerpt } from "../lib/observations";
 import { DEFAULT_STATE_URL } from "../lib/targets";
 
 function snap(partial: Partial<HistorySnapshot> & Pick<HistorySnapshot, "id" | "artistId" | "sourceDisplayedUpdatedAt">): HistorySnapshot {
@@ -29,8 +31,8 @@ function snap(partial: Partial<HistorySnapshot> & Pick<HistorySnapshot, "id" | "
 }
 
 describe("history display", () => {
-  it("shows 未提供 for null counts and never turns missing platforms into 0", () => {
-    assert.equal(displayCount(null), "未提供");
+  it("shows 未采集到 for null counts and never turns missing platforms into 0", () => {
+    assert.equal(displayCount(null), "未采集到");
     assert.equal(displayCount(16558), "16,558");
     assert.equal(originLabel("historical_observation", false), "历史人工观测（非实时）");
     assert.equal(originLabel("public_html", true), "公开 HTML");
@@ -59,7 +61,7 @@ describe("history display", () => {
     const earlier = rows.find((row) => row.sourceDisplayedUpdatedAt.endsWith("08:50:00.000Z"));
     assert.equal(cellOrGap(later?.anqi || null, "total"), "25,628");
     assert.equal(cellOrGap(later?.huangcancan || null, "total"), "缺口");
-    assert.equal(platformCell(later?.anqi || null, "kugou"), "未提供");
+    assert.equal(platformCell(later?.anqi || null, "kugou"), "未采集到");
     assert.equal(cellOrGap(earlier?.huangcancan || null, "total"), "50,372");
     assert.equal(cellOrGap(earlier?.anqi || null, "total"), "缺口");
   });
@@ -126,6 +128,104 @@ describe("history display", () => {
     assert.equal(gaps.length, 1);
     assert.equal(gaps[0]?.ingested, false);
     assert.equal(gaps[0]?.kind, "blocked_browser_render");
+  });
+
+  it("overlays this-round obsj platforms onto cards and does not copy historical 三端", () => {
+    const payload = buildHistoryPayload({
+      timezone: "Asia/Shanghai",
+      edition: { show: "打歌2026·X舞台", zone: "鲜打专区", term: "第9期" },
+      views: {
+        huangcancan: {
+          displayName: "黄灿灿",
+          songTitle: "早上坏",
+          latest: {
+            id: "snap-h",
+            artistId: "huangcancan",
+            total: 58681,
+            rank: 1,
+            platforms: { aiLizhi: null, kugou: null, qqMusic: null },
+            sourceDisplayedUpdatedAt: "2026-11-09T11:30:00.000Z",
+            collectedAt: "2026-11-09T11:34:05.250Z",
+            origin: "public_html",
+            liveCollector: true,
+            provenance: { observer: "vercel_function_chromium" },
+          },
+        },
+        anqi: {
+          displayName: "安崎",
+          songTitle: "Ice In My Walk",
+          latest: {
+            id: "snap-a",
+            artistId: "anqi",
+            total: 29009,
+            rank: 2,
+            platforms: { aiLizhi: 6340, kugou: 2831, qqMusic: 7387 },
+            sourceDisplayedUpdatedAt: "2026-11-09T11:30:00.000Z",
+            collectedAt: "2026-11-09T11:34:05.250Z",
+            origin: "public_html",
+            liveCollector: true,
+            provenance: { observer: "parent_browser_initial" },
+          },
+        },
+      },
+      snapshots: [],
+      attempts: [
+        {
+          id: "h1",
+          at: "2026-11-09T11:36:19.928Z",
+          rawExcerpt: encodeObservationExcerpt({
+            sourceUpdateText: "更新至19:30",
+            artist: "黄灿灿",
+            title: "早上坏",
+            rank: 1,
+            total: 58681,
+            platforms: { aiLizhi: 24993, kugou: 9267, qqMusic: 24421 },
+          }),
+        },
+        {
+          id: "a1",
+          at: "2026-11-09T11:36:20.118Z",
+          rawExcerpt: encodeObservationExcerpt({
+            sourceUpdateText: "更新至19:30",
+            artist: "安崎",
+            title: "Ice In My Walk",
+            rank: 2,
+            total: 29009,
+            platforms: { aiLizhi: 8129, kugou: 5482, qqMusic: 15398 },
+          }),
+        },
+      ],
+    });
+    const huang = payload.artists.find((item) => item.artistId === "huangcancan");
+    const anqi = payload.artists.find((item) => item.artistId === "anqi");
+    assert.equal(huang?.latest?.platforms.aiLizhi, 24993);
+    assert.equal(anqi?.latest?.platforms.aiLizhi, 8129);
+    assert.notEqual(anqi?.latest?.platforms.aiLizhi, 6340);
+    assert.equal(huang?.platformMissReason, null);
+    assert.equal(anqi?.platformMissReason, null);
+  });
+
+  it("shows a miss reason instead of asserting 腾讯未提供", () => {
+    const artist = overlayObservationPlatforms(
+      {
+        artistId: "anqi",
+        displayName: "安崎",
+        songTitle: "Ice In My Walk",
+        sampleCount: 1,
+        latest: snap({
+          id: "a",
+          artistId: "anqi",
+          sourceDisplayedUpdatedAt: "2026-11-09T11:30:00.000Z",
+          total: 29009,
+        }),
+        freshness: null,
+        deltas: null,
+        platformMissReason: null,
+      },
+      [],
+    );
+    assert.equal(artist.platformMissReason, "当前快照没有三端实读记录（不是断言源站未提供）");
+    assert.equal(displayCount(artist.latest?.platforms.aiLizhi), "未采集到");
   });
 
   it("refuses non-https snapshot files as the live source", () => {

@@ -9,7 +9,7 @@
 
 读取对象：`《打歌2026·X舞台》第9期鲜打专区` 中黄灿灿《早上坏》、安崎《Ice In My Walk》的**可见**总票 / 排名 / 源更新时间。三平台（ai荔枝 / 酷狗 / QQ音乐）分项只在公开页对该歌曲可见时读取，缺失为 `null`，不用 `0` 填。
 
-主页是票仓历史站：只读共享 `https://votes.alan0828.cloud/api/state`（**共享原库，不是迁库/复制搬库**）。`GET /api/history` 原样整理快照后展示完整源时间序列。缺样本为「缺口」，分项 null 为「未提供」。`POST /api/probe` 鉴权与 URL 不变。
+主页是票仓历史站：只读共享 `https://votes.alan0828.cloud/api/state`（**共享原库，不是迁库/复制搬库**）。`GET /api/history` 原样整理快照后展示完整源时间序列。缺样本为「缺口」，分项 null 为「未采集到」并带原因，不断言腾讯未提供。`POST /api/probe` 鉴权与 URL 不变。总榜行没有三端，probe 会另开公开歌曲详情短链读取可见分项。
 
 ## 运行分层
 
@@ -108,7 +108,7 @@ export default {
   "liveCollector": true,
   "observer": "vercel_function_chromium",
   "sourceId": "yobang-x-plan-p9",
-  "notes": "visible public chart DOM; missing platform counts left null, not 0"
+  "notes": "visible public chart + song-detail DOM; obsj in rawExcerpt is this-round platforms from the public detail page"
 }
 ```
 

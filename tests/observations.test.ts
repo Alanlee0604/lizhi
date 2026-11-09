@@ -19,6 +19,7 @@ describe("attempt.rawExcerpt observation axis", () => {
     assert.equal(reading?.rank, 2);
     assert.equal(reading?.sourceDisplayedUpdatedAt, "2026-11-09T18:40:00+08:00");
     assert.equal(reading?.platformsStructured, false);
+    assert.equal(reading?.platformMiss, "unstructured_total_only");
     assert.equal(reading?.platforms.aiLizhi, null);
     assert.equal(reading?.platforms.kugou, null);
     assert.equal(reading?.platforms.qqMusic, null);
@@ -42,7 +43,28 @@ describe("attempt.rawExcerpt observation axis", () => {
     assert.equal(reading?.platforms.aiLizhi, 100);
     assert.equal(reading?.platforms.kugou, null);
     assert.equal(reading?.platforms.qqMusic, 200);
+    assert.equal(reading?.platformMiss, null);
     assert.equal(reading?.total, 58133);
+  });
+
+  it("keeps a miss code on structured null platforms instead of inventing 腾讯未提供", () => {
+    const excerpt = encodeObservationExcerpt({
+      sourceUpdateText: "更新至19:30",
+      artist: "安崎",
+      title: "Ice In My Walk",
+      rank: 2,
+      total: 29009,
+      platforms: { aiLizhi: null, kugou: null, qqMusic: null },
+      miss: "not_attempted_detail",
+    });
+    const reading = parseAttemptReading({
+      id: "att_miss",
+      at: "2026-11-09T11:34:05.250Z",
+      rawExcerpt: excerpt,
+    });
+    assert.equal(reading?.platformsStructured, true);
+    assert.equal(reading?.platformMiss, "not_attempted_detail");
+    assert.equal(reading?.platforms.aiLizhi, null);
   });
 
   it("keeps two checks with the same source time as two observation points", () => {

@@ -11,7 +11,10 @@ export const TREND_METRICS: Array<{ id: TrendMetric; label: string }> = [
 
 export const DEFAULT_TREND_METRICS: TrendMetric[] = ["total"];
 
-export function metricValue(snapshot: ObservationArtist | null | undefined, metric: TrendMetric): number | null {
+export function metricValue(
+  snapshot: { total: number | null; platforms: ObservationArtist["platforms"] } | null | undefined,
+  metric: TrendMetric,
+): number | null {
   if (!snapshot) return null;
   if (metric === "total") {
     return typeof snapshot.total === "number" ? snapshot.total : null;
