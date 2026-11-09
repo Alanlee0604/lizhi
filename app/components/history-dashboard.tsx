@@ -94,8 +94,11 @@ export function HistoryDashboard({ history }: { history: HistoryPayload }) {
       </section>
 
       <section>
-        <h2>历史趋势 · 总票</h2>
-        <p className="muted">按源站更新时间排列。没有样本的点不连线，不用前后值填。分项同样不跨时间拼接。</p>
+        <h2>历史趋势</h2>
+        <p className="muted">
+          按源站更新时间排列。可勾选实际总票 / 爱荔枝 / 酷狗 / QQ音乐，支持多选对比。没有样本或分项为 null
+          的点不连线，不画成 0，也不跨时间拼接。
+        </p>
         <TrendChart timeline={timeline} />
       </section>
 

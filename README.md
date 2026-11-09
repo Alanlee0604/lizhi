@@ -33,7 +33,7 @@ Hobby Functions 额度：300s / 2GB / 4h Active CPU / 360 GB-hrs / 1M 调用。[
         既有 D1 / Worker 原库（不复制、不写入、不清除）
 ```
 
-- 主页展示两人完整源时间历史，不只最新一条。计数以**线上实时** `GET /api/state` 为准；父 bot 的 `history-export` 只做审核备份，不替代在线历史。
+- 主页展示两人完整源时间历史，不只最新一条。折线图可勾选**实际总票 / 爱荔枝 / 酷狗 / QQ音乐**（多选，默认总票）；null 断线不画 0。计数以**线上实时** `GET /api/state` 为准；父 bot 的 `history-export` 只做审核备份，不替代在线历史。
 - 旧 API 无浏览器 CORS，必须本站 **server fetch / GET /api/history 代理**。禁止浏览器直连，禁止批量重放 POST `/api/ingest`。
 - 历史人工 `historical_observation` 标明「非实时」。采集失败缺口单独列出，不会变成票数。
 - 绑定用户自己的域名只需在本 Vercel 项目添加 Domain，并把 DNS CNAME 到 `cname.vercel-dns.com`（**说明，不执行**）。现域名 `votes.alan0828.cloud` 保持不动。
