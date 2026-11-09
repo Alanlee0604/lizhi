@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs";
 import { describe, it } from "node:test";
 import {
   extractFreshHitZone,
+  identifyDetailTarget,
   looksLikeRestriction,
   parseDetailPlatformVotes,
   parsePlatformVotes,
@@ -90,5 +91,12 @@ describe("parse public song-detail text", () => {
       kugou: null,
       qqMusic: null,
     });
+  });
+
+  it("binds each detail page from visible 歌手/歌名, not from the short-link slug", () => {
+    const anqiText = readFileSync(new URL("../fixtures/song-detail-anqi-visible.txt", import.meta.url), "utf8");
+    assert.equal(identifyDetailTarget(detailFixture)?.artistId, "huangcancan");
+    assert.equal(identifyDetailTarget(anqiText)?.artistId, "anqi");
+    assert.equal(identifyDetailTarget("第9期 鲜打专区 去支持"), null);
   });
 });

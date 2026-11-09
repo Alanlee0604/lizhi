@@ -13,20 +13,11 @@ export const TARGET_SONGS: TargetSong[] = [
   { id: "anqi-ice-in-my-walk", artistId: "anqi", artist: "安崎", title: "Ice In My Walk" },
 ];
 
-/** Public share short links that a normal browser opens as the song-detail H5 (not unpublished APIs). */
-export const DETAIL_PAGES: Record<
-  TargetSong["artistId"],
-  { url: string; sourceId: string }
-> = {
-  anqi: {
-    url: "https://c6.y.qq.com/base/fcgi-bin/u?__=b40cE93Aqkgo",
-    sourceId: "anqi-b40cE93Aqkgo",
-  },
-  huangcancan: {
-    url: "https://c6.y.qq.com/base/fcgi-bin/u?__=Al0gtgNAqK9e",
-    sourceId: "huangcancan-Al0gtgNAqK9e",
-  },
-};
+/** User-provided public 三端详情入口. Identity is read from the visible DOM after the normal 302, not guessed from the slug. */
+export const DETAIL_URLS = [
+  "https://c6.y.qq.com/base/fcgi-bin/u?__=Al0gtgNAqK9e",
+  "https://c6.y.qq.com/base/fcgi-bin/u?__=b40cE93Aqkgo",
+] as const;
 
 export const PROBE_TIMEOUT_MS = 110_000;
 export const SCRAPE_BUDGET_MS = 95_000;

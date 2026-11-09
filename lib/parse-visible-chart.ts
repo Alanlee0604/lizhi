@@ -120,6 +120,11 @@ export function parseDetailPlatformVotes(visibleText: string): PlatformVotes {
   };
 }
 
+export function identifyDetailTarget(visibleText: string): (typeof TARGET_SONGS)[number] | null {
+  const hits = TARGET_SONGS.filter((target) => visibleText.includes(target.title) && visibleText.includes(target.artist));
+  return hits.length === 1 ? hits[0] : null;
+}
+
 export function parseSongDetail(
   visibleText: string,
   target: { title: string; artist: string },
