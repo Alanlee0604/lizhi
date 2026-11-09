@@ -4,11 +4,13 @@ import type { HistorySnapshot } from "../lib/history";
 import type { ObservationRow } from "../lib/observations";
 import { metricValue, pathFor, seriesValues, toggleMetric } from "../lib/trend";
 
-function snap(partial: Partial<HistorySnapshot> & Pick<HistorySnapshot, "id" | "artistId" | "sourceDisplayedUpdatedAt">): HistorySnapshot {
+function snap(partial: Partial<HistorySnapshot> & Pick<HistorySnapshot, "id" | "artistId" | "sourceDisplayedUpdatedAt">) {
   return {
     total: null,
     rank: null,
     platforms: { aiLizhi: null, kugou: null, qqMusic: null },
+    platformsStructured: true,
+    platformMiss: null,
     collectedAt: null,
     origin: "public_html",
     liveCollector: true,
