@@ -34,12 +34,13 @@ export function HistoryDashboard({ history }: { history: HistoryPayload }) {
         <p className="meta">
           本页刷新 {history.fetchedAtBeijing}（北京时间）· 源时间 {counts.sourceFrom ? formatShanghai(counts.sourceFrom) : "—"} →{" "}
           {counts.sourceTo ? formatShanghai(counts.sourceTo) : "—"} · 快照 {counts.snapshots} 条（黄灿灿 {counts.huangcancan} / 安崎{" "}
-          {counts.anqi}）· {counts.sourceTimes} 个源时间
+          {counts.anqi}）· {counts.sourceTimes} 个源时间 · 三端全数字 {counts.platformsAllNumeric} / 全未提供 {counts.platformsAllNull}
         </p>
         <p className="meta">
           采集侧最近成功 {collector.lastSuccessAt ? formatShanghai(collector.lastSuccessAt) : "未提供"}
           {collector.lastKind ? ` · ${collector.lastKind}` : ""}
           {collector.cadenceMinutes ? ` · 约每 ${collector.cadenceMinutes} 分钟` : ""}
+          。旧 API 无浏览器 CORS，本页由服务端只读拉取。计数以线上实时为准。
         </p>
       </header>
 
@@ -97,6 +98,20 @@ export function HistoryDashboard({ history }: { history: HistoryPayload }) {
         <p className="muted">按源站更新时间排列。没有样本的点不连线，不用前后值填。分项同样不跨时间拼接。</p>
         <TrendChart timeline={timeline} />
       </section>
+
+      {history.collectionGaps.length > 0 ? (
+        <section>
+          <h2>采集缺口（未入库）</h2>
+          <p className="muted">这些是采集失败留下的缺口，不是票数，不会写成 0，也不会用邻时样本填上。</p>
+          <ul className="gaps">
+            {history.collectionGaps.map((gap) => (
+              <li key={gap.id || `${gap.at}-${gap.kind}`}>
+                {gap.at ? formatShanghai(gap.at) : "时间未提供"} · {gap.kind || "gap"} · {gap.message || "未入库"}
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
 
       <section>
         <h2>历史明细</h2>

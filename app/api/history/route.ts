@@ -13,6 +13,7 @@ export async function GET() {
           mode: "shared-source",
           migrated: false,
           source: "https://votes.alan0828.cloud/api/state",
+          corsBrowserDirect: false,
         },
         error: history.error,
       },

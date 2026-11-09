@@ -170,6 +170,12 @@ code {
   margin: 8px 0 28px;
 }
 
+.gaps {
+  margin: 8px 0 24px;
+  padding-left: 1.2rem;
+  color: var(--muted);
+}
+
 .table-wrap {
   overflow: auto;
   border: 1px solid var(--line);

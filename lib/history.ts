@@ -50,6 +50,14 @@ export type HistoryArtistView = {
   deltas: { total: number | null; rank: number | null } | null;
 };
 
+export type CollectionGap = {
+  id: string | null;
+  at: string | null;
+  kind: string | null;
+  message: string | null;
+  ingested: false;
+};
+
 export type HistoryPayload = {
   ok: true;
   architecture: {
@@ -57,6 +65,7 @@ export type HistoryPayload = {
     migrated: false;
     source: string;
     note: string;
+    corsBrowserDirect: false;
   };
   fetchedAtUtc: string;
   fetchedAtBeijing: string;
@@ -76,10 +85,15 @@ export type HistoryPayload = {
     huangcancan: number;
     sourceFrom: string | null;
     sourceTo: string | null;
+    platformsAllNumeric: number;
+    platformsAllNull: number;
+    seriesPoints: number;
+    collectionGaps: number;
   };
   artists: HistoryArtistView[];
   timeline: TimelineRow[];
   snapshots: HistorySnapshot[];
+  collectionGaps: CollectionGap[];
 };
 
 const ORIGIN_LABELS: Record<string, string> = {
@@ -130,6 +144,18 @@ export function platformCell(snapshot: HistorySnapshot | null, key: keyof Histor
   return displayCount(snapshot.platforms[key]);
 }
 
+export function platformFill(platforms: HistoryPlatforms): "all_numeric" | "all_null" | "mixed" {
+  const values = [platforms.aiLizhi, platforms.kugou, platforms.qqMusic];
+  if (values.every((value) => value == null)) return "all_null";
+  if (values.every((value) => typeof value === "number")) return "all_numeric";
+  return "mixed";
+}
+
+export function resolveStateUrl(raw = process.env.STATE_URL || DEFAULT_STATE_URL): string | null {
+  if (!/^https:\/\//i.test(raw)) return null;
+  return raw;
+}
+
 function asNumberOrNull(value: unknown): number | null {
   return typeof value === "number" && Number.isFinite(value) ? value : null;
 }
@@ -149,6 +175,28 @@ function platformsOf(raw: unknown): HistoryPlatforms {
     kugou: asNumberOrNull(row.kugou),
     qqMusic: asNumberOrNull(row.qqMusic),
   };
+}
+
+export function collectionGapsOf(raw: unknown): CollectionGap[] {
+  if (!Array.isArray(raw)) return [];
+  const gaps: CollectionGap[] = [];
+  for (const item of raw) {
+    if (!item || typeof item !== "object") continue;
+    const row = item as Record<string, unknown>;
+    if (row.ingested !== false) continue;
+    const kind = asStringOrNull(row.kind) || "";
+    const message = asStringOrNull(row.message) || "";
+    const looksLikeGap = kind === "blocked_browser_render" || /缺口|未用空值或历史票数入库|skipped_gap/.test(message);
+    if (!looksLikeGap) continue;
+    gaps.push({
+      id: asStringOrNull(row.id),
+      at: asStringOrNull(row.at),
+      kind: kind || null,
+      message: message || null,
+      ingested: false,
+    });
+  }
+  return gaps;
 }
 
 function provenanceOf(raw: unknown): HistoryProvenance {
@@ -236,15 +284,19 @@ export function buildHistoryPayload(state: unknown, source = DEFAULT_STATE_URL):
     ? root.snapshots.map(normalizeSnapshot).filter((item): item is HistorySnapshot => item !== null)
     : [];
   const timeline = buildTimeline(snapshots);
+  const collectionGaps = collectionGapsOf(root.attempts);
   const collected = beijingNow();
   const sourceTimes = timeline.map((row) => row.sourceDisplayedUpdatedAt);
+  const fills = snapshots.map((item) => platformFill(item.platforms));
+  const seriesPoints = Array.isArray(root.series) ? root.series.length : timeline.length;
   return {
     ok: true,
     architecture: {
       mode: "shared-source",
       migrated: false,
       source,
-      note: "只读共享 votes.alan0828.cloud 原数据库，不是复制搬库。",
+      note: "只读共享 votes.alan0828.cloud 原数据库，不是复制搬库。旧 API 无 CORS，由本站服务端 GET 代理；不用静态导出替代在线历史。",
+      corsBrowserDirect: false,
     },
     fetchedAtUtc: collected.utc,
     fetchedAtBeijing: collected.beijing,
@@ -268,6 +320,10 @@ export function buildHistoryPayload(state: unknown, source = DEFAULT_STATE_URL):
       huangcancan: snapshots.filter((item) => item.artistId === "huangcancan").length,
       sourceFrom: sourceTimes.at(-1) || null,
       sourceTo: sourceTimes[0] || null,
+      platformsAllNumeric: fills.filter((item) => item === "all_numeric").length,
+      platformsAllNull: fills.filter((item) => item === "all_null").length,
+      seriesPoints,
+      collectionGaps: collectionGaps.length,
     },
     artists: [
       artistView(views.huangcancan, "huangcancan", "黄灿灿", snapshots),
@@ -275,11 +331,15 @@ export function buildHistoryPayload(state: unknown, source = DEFAULT_STATE_URL):
     ],
     timeline,
     snapshots,
+    collectionGaps,
   };
 }
 
 export async function loadSharedHistory(): Promise<HistoryPayload | { ok: false; error: string }> {
-  const source = process.env.STATE_URL || DEFAULT_STATE_URL;
+  const source = resolveStateUrl();
+  if (!source) {
+    return { ok: false, error: "STATE_URL must be an https live API; static snapshots cannot replace online history." };
+  }
   try {
     const response = await fetch(source, {
       method: "GET",

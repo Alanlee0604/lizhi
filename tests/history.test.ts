@@ -1,14 +1,19 @@
 import assert from "node:assert/strict";
+import { existsSync, readFileSync } from "node:fs";
 import { describe, it } from "node:test";
 import {
   buildHistoryPayload,
   buildTimeline,
   cellOrGap,
+  collectionGapsOf,
   displayCount,
   originLabel,
   platformCell,
+  platformFill,
+  resolveStateUrl,
   type HistorySnapshot,
 } from "../lib/history";
+import { DEFAULT_STATE_URL } from "../lib/targets";
 
 function snap(partial: Partial<HistorySnapshot> & Pick<HistorySnapshot, "id" | "artistId" | "sourceDisplayedUpdatedAt">): HistorySnapshot {
   return {
@@ -96,5 +101,62 @@ describe("history display", () => {
     assert.equal(payload.timeline[0]?.anqi?.total, 16558);
     assert.equal(payload.timeline[0]?.huangcancan?.platforms.aiLizhi, null);
     assert.equal(originLabel(payload.timeline[0]?.anqi?.origin, payload.timeline[0]?.anqi?.liveCollector), "历史人工观测（非实时）");
+    assert.equal(payload.architecture.corsBrowserDirect, false);
+    assert.equal(payload.counts.platformsAllNull, 1);
+    assert.equal(payload.counts.platformsAllNumeric, 1);
+  });
+
+  it("keeps the 18:01 blocked render as a collection gap, not a vote row", () => {
+    const gaps = collectionGapsOf([
+      {
+        id: "att_gap",
+        at: "2026-11-09T10:01:00.000Z",
+        kind: "blocked_browser_render",
+        message: "已记本地缺口，未用空值或历史票数入库。",
+        ingested: false,
+      },
+      {
+        id: "att_ok",
+        at: "2026-11-09T10:05:00.000Z",
+        kind: "external_browser_bot",
+        ingested: true,
+        message: "入库",
+      },
+    ]);
+    assert.equal(gaps.length, 1);
+    assert.equal(gaps[0]?.ingested, false);
+    assert.equal(gaps[0]?.kind, "blocked_browser_render");
+  });
+
+  it("refuses non-https snapshot files as the live source", () => {
+    assert.equal(resolveStateUrl(DEFAULT_STATE_URL), DEFAULT_STATE_URL);
+    assert.equal(resolveStateUrl("/cursor/stores/bot/xianda/history-export/raw/api-state-latest.json"), null);
+  });
+});
+
+const AUDIT = "/cursor/stores/bot/xianda/history-export/raw/api-state-latest.json";
+
+describe("audit backup at 18:10 CST (does not replace live fetch)", () => {
+  it("matches 29/14/15, six all-null platforms, and keeps 16:50 安崎 as a gap", (t) => {
+    if (!existsSync(AUDIT)) {
+      t.skip("audit export not mounted");
+      return;
+    }
+    const state = JSON.parse(readFileSync(AUDIT, "utf8")) as unknown;
+    const payload = buildHistoryPayload(state, DEFAULT_STATE_URL);
+    assert.equal(payload.architecture.migrated, false);
+    assert.equal(payload.architecture.source, DEFAULT_STATE_URL);
+    assert.equal(payload.counts.snapshots, 29);
+    assert.equal(payload.counts.anqi, 14);
+    assert.equal(payload.counts.huangcancan, 15);
+    assert.equal(payload.counts.sourceTimes, 16);
+    assert.equal(payload.counts.platformsAllNumeric, 23);
+    assert.equal(payload.counts.platformsAllNull, 6);
+    assert.equal(payload.counts.seriesPoints, 16);
+    const row1650 = payload.timeline.find((row) => row.sourceDisplayedUpdatedAt === "2026-11-09T08:50:00.000Z");
+    assert.equal(cellOrGap(row1650?.anqi || null, "total"), "缺口");
+    assert.equal(cellOrGap(row1650?.huangcancan || null, "total"), "50,372");
+    const histCancan = payload.snapshots.find((item) => item.id === "hist-cancan-yobang-2026-11-09-1410");
+    assert.equal(platformFill(histCancan?.platforms || { aiLizhi: null, kugou: null, qqMusic: null }), "all_null");
   });
 });
