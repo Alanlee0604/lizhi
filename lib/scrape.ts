@@ -32,8 +32,12 @@ async function launchBrowser() {
   });
 }
 
-export async function scrapeVisibleChart(probeRemaining: number): Promise<ProbeResult> {
+export async function scrapeVisibleChart(options: {
+  includeScreenshot?: boolean;
+  rateLimit: { limit: string; retryAfterSeconds: number };
+}): Promise<ProbeResult> {
   const collected = beijingNow();
+  const rateLimit = options.rateLimit;
   const notes: string[] = [
     "layer=vercel-function-chromium：浏览器在已部署的 Vercel Function 进程内启动，不是 Vercel Sandbox 会话。",
     "只读取可见 DOM/innerText；不监听网络、不调用未公开 API、不点击投票/去支持。",
@@ -62,9 +66,10 @@ export async function scrapeVisibleChart(probeRemaining: number): Promise<ProbeR
           kind: "other",
           message: `公开页 HTTP ${status}，已停止。`,
         },
-        probeRemaining,
         screenshotJpegBase64: null,
         notes,
+        rateLimit,
+        ingest: null,
       };
     }
 
@@ -102,8 +107,11 @@ export async function scrapeVisibleChart(probeRemaining: number): Promise<ProbeR
     const visibleText = await page.evaluate(() => document.body?.innerText || "");
     const finalUrl = page.url() || FINAL_URL;
     const restriction = looksLikeRestriction(visibleText);
-    const screenshot = await page.screenshot({ type: "jpeg", quality: 55, fullPage: false });
-    const screenshotJpegBase64 = Buffer.from(screenshot).toString("base64");
+    let screenshotJpegBase64: string | null = null;
+    if (options.includeScreenshot) {
+      const screenshot = await page.screenshot({ type: "jpeg", quality: 55, fullPage: false });
+      screenshotJpegBase64 = Buffer.from(screenshot).toString("base64");
+    }
 
     if (restriction.kind) {
       return {
@@ -112,9 +120,10 @@ export async function scrapeVisibleChart(probeRemaining: number): Promise<ProbeR
         collectedAtUtc: collected.utc,
         collectedAtBeijing: collected.beijing,
         restriction: { stopped: true, kind: restriction.kind, message: restriction.message },
-        probeRemaining,
         screenshotJpegBase64,
         notes,
+        rateLimit,
+        ingest: null,
       };
     }
 
@@ -141,7 +150,8 @@ export async function scrapeVisibleChart(probeRemaining: number): Promise<ProbeR
       restriction: null,
       screenshotJpegBase64,
       notes,
-      probeRemaining,
+      rateLimit,
+      ingest: null,
     };
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
@@ -156,9 +166,10 @@ export async function scrapeVisibleChart(probeRemaining: number): Promise<ProbeR
         kind: timedOut ? "timeout" : "other",
         message: timedOut ? `渲染超时，已停止：${message}` : `采集失败，已停止：${message}`,
       },
-      probeRemaining,
       screenshotJpegBase64: null,
       notes,
+      rateLimit,
+      ingest: null,
     };
   } finally {
     if (browser) {

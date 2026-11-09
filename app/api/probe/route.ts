@@ -1,6 +1,8 @@
-import { consumeProbeSlot, isAuthorized, unauthorized } from "@/lib/limits";
+import { isAuthorized, unauthorized } from "@/lib/auth";
+import { postIngest } from "@/lib/ingest";
+import { consumeRateLimit, rateLimited, releaseProbeLock } from "@/lib/limits";
 import { scrapeVisibleChart } from "@/lib/scrape";
-import { MAX_MANUAL_PROBES, PROBE_TIMEOUT_MS } from "@/lib/targets";
+import { PROBE_TIMEOUT_MS } from "@/lib/targets";
 
 export const runtime = "nodejs";
 export const maxDuration = 120;
@@ -11,14 +13,14 @@ export async function GET() {
     {
       ok: false,
       error: "method_not_allowed",
-      hint: "Manual read-only probe is POST /api/probe with Authorization: Bearer <PROBE_TOKEN>. Max 2 calls.",
+      hint: "POST /api/probe with Authorization: Bearer <PROBE_TOKEN>. Optional CRON_SECRET. Rate limit 1/min for a 5-minute Cloudflare timer.",
     },
     { status: 405 },
   );
 }
 
 export async function POST(request: Request) {
-  if (!process.env.PROBE_TOKEN) {
+  if (!process.env.PROBE_TOKEN && !process.env.CRON_SECRET) {
     return Response.json(
       { ok: false, error: "server_misconfigured", hint: "PROBE_TOKEN is not set on this deployment." },
       { status: 500 },
@@ -28,27 +30,32 @@ export async function POST(request: Request) {
     return unauthorized();
   }
 
-  const slot = await consumeProbeSlot();
+  const slot = await consumeRateLimit();
   if (!slot.allowed) {
-    return Response.json(
-      {
-        ok: false,
-        error: "probe_limit_reached",
-        max: MAX_MANUAL_PROBES,
-        remaining: 0,
-        hint: "This isolated project allows at most 2 manual read-only probes.",
-      },
-      { status: 429 },
-    );
+    return rateLimited(slot.retryAfterSeconds, slot.limit);
   }
+
+  const url = new URL(request.url);
+  const includeScreenshot = url.searchParams.get("screenshot") === "1";
+  const rateLimit = { limit: slot.limit, retryAfterSeconds: 60 };
 
   try {
     const result = await Promise.race([
-      scrapeVisibleChart(slot.remaining),
+      scrapeVisibleChart({ includeScreenshot, rateLimit }),
       new Promise<never>((_, reject) => {
         setTimeout(() => reject(new Error(`probe exceeded ${PROBE_TIMEOUT_MS}ms`)), PROBE_TIMEOUT_MS);
       }),
     ]);
+    if (result.ok) {
+      result.ingest = await postIngest(result);
+      if (result.ingest.skipped) {
+        result.notes.push("INGEST_TOKEN 未配置，已跳过入库。");
+      } else if (!result.ingest.ok) {
+        result.notes.push(`入库失败：${result.ingest.reason}`);
+      } else {
+        result.notes.push("已 POST 到 votes ingest。");
+      }
+    }
     return Response.json(result, { status: result.ok ? 200 : 503 });
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
@@ -62,9 +69,12 @@ export async function POST(request: Request) {
           kind: timedOut ? "timeout" : "other",
           message,
         },
-        probeRemaining: slot.remaining,
+        rateLimit,
+        ingest: null,
       },
       { status: 504 },
     );
+  } finally {
+    releaseProbeLock();
   }
 }

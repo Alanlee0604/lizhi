@@ -21,8 +21,11 @@ export default function Page() {
       <h2>限制</h2>
       <ul>
         <li>不建立 cron，不投票，不购买，不绕过登录 / captcha / 风控。</li>
-        <li>手动 POST <code>/api/probe</code> 最多 2 次，超时 90 秒，需要 <code>PROBE_TOKEN</code>。</li>
-        <li>首页不会自动打开浏览器。未授权请求不会启动 Chromium。</li>
+        <li>
+          外部 Cloudflare Worker 每 5 分钟 <code>POST /api/probe</code>。鉴权用 <code>PROBE_TOKEN</code>，可选{" "}
+          <code>CRON_SECRET</code>。速率限制 1 次/分钟，不再使用全项目 2 次上限。
+        </li>
+        <li>成功读取后由本 Function 使用 <code>INGEST_TOKEN</code> POST 到 votes ingest。首页不会自动打开浏览器。</li>
       </ul>
 
       <ProbePanel />

@@ -29,7 +29,7 @@ export function ProbePanel() {
   return (
     <section className="panel">
       <h2>手动只读探测</h2>
-      <p>Token 不会写进页面源码。最多两次。请勿对公开投票按钮做任何操作。</p>
+      <p>Token 不会写进页面源码。适合每 5 分钟调用，滥用上限 1 次/分钟。请勿对公开投票按钮做任何操作。</p>
       <label htmlFor="probe-token">PROBE_TOKEN</label>
       <input
         id="probe-token"

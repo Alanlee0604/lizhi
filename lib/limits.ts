@@ -1,15 +1,24 @@
 import { getCache } from "@vercel/functions";
-import { MAX_MANUAL_PROBES } from "./targets";
+import { RATE_LIMIT_WINDOW_MS } from "./targets";
 
 const NAMESPACE = "lizhi-readonly-verify";
-const COUNT_KEY = "manual-probe-count";
+const LAST_KEY = "probe-last-ms";
 
-const memory = globalThis as typeof globalThis & { __lizhiProbeCount?: number };
+const memory = globalThis as typeof globalThis & {
+  __lizhiLastProbeMs?: number;
+  __lizhiProbeInFlight?: boolean;
+};
 
-async function readCount(): Promise<number> {
+export function retryAfterSeconds(lastMs: number, nowMs: number, windowMs = RATE_LIMIT_WINDOW_MS): number {
+  const elapsed = nowMs - lastMs;
+  if (elapsed >= windowMs) return 0;
+  return Math.ceil((windowMs - elapsed) / 1000);
+}
+
+async function readLastMs(): Promise<number> {
   try {
     const cache = getCache({ namespace: NAMESPACE });
-    const cached = await cache.get(COUNT_KEY);
+    const cached = await cache.get(LAST_KEY);
     if (typeof cached === "number") return cached;
     if (typeof cached === "string") {
       const parsed = Number(cached);
@@ -18,45 +27,57 @@ async function readCount(): Promise<number> {
   } catch {
     // Local/dev without Runtime Cache falls back to process memory.
   }
-  return memory.__lizhiProbeCount ?? 0;
+  return memory.__lizhiLastProbeMs ?? 0;
 }
 
-async function writeCount(count: number): Promise<void> {
-  memory.__lizhiProbeCount = count;
+async function writeLastMs(value: number): Promise<void> {
+  memory.__lizhiLastProbeMs = value;
   try {
     const cache = getCache({ namespace: NAMESPACE });
-    await cache.set(COUNT_KEY, count, {
-      ttl: 60 * 60 * 24 * 7,
+    await cache.set(LAST_KEY, value, {
+      ttl: 60 * 10,
       tags: ["lizhi-readonly-verify-probe"],
-      name: "manual-probe-count",
+      name: "probe-last-ms",
     });
   } catch {
     // Ignore cache write failures; memory still limits this instance.
   }
 }
 
-export async function consumeProbeSlot(): Promise<{ allowed: boolean; remaining: number; used: number }> {
-  const used = await readCount();
-  if (used >= MAX_MANUAL_PROBES) {
-    return { allowed: false, remaining: 0, used };
+export async function consumeRateLimit(nowMs = Date.now()): Promise<{
+  allowed: boolean;
+  retryAfterSeconds: number;
+  limit: string;
+}> {
+  const last = await readLastMs();
+  const wait = retryAfterSeconds(last, nowMs);
+  if (wait > 0) {
+    return { allowed: false, retryAfterSeconds: wait, limit: "1/min" };
   }
-  const next = used + 1;
-  await writeCount(next);
-  return { allowed: true, remaining: MAX_MANUAL_PROBES - next, used: next };
+  if (memory.__lizhiProbeInFlight) {
+    return { allowed: false, retryAfterSeconds: 30, limit: "1/min" };
+  }
+  memory.__lizhiProbeInFlight = true;
+  await writeLastMs(nowMs);
+  return { allowed: true, retryAfterSeconds: 0, limit: "1/min" };
 }
 
-export function unauthorized(): Response {
+export function releaseProbeLock(): void {
+  memory.__lizhiProbeInFlight = false;
+}
+
+export function rateLimited(retryAfter: number, limit: string): Response {
   return Response.json(
-    { ok: false, error: "unauthorized", hint: "Send header Authorization: Bearer <PROBE_TOKEN>" },
-    { status: 401 },
+    {
+      ok: false,
+      error: "rate_limited",
+      limit,
+      retryAfterSeconds: retryAfter,
+      hint: "Cloudflare timer should POST about every 5 minutes. Abuse cap is 1 call per minute.",
+    },
+    {
+      status: 429,
+      headers: { "Retry-After": String(retryAfter) },
+    },
   );
-}
-
-export function isAuthorized(request: Request): boolean {
-  const expected = process.env.PROBE_TOKEN;
-  if (!expected) return false;
-  const header = request.headers.get("authorization") || "";
-  const bearer = header.startsWith("Bearer ") ? header.slice("Bearer ".length).trim() : "";
-  const alt = request.headers.get("x-probe-token")?.trim() || "";
-  return bearer === expected || alt === expected;
 }

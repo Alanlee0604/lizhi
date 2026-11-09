@@ -26,6 +26,20 @@ export type Restriction = {
   message: string;
 };
 
+export type RateLimitInfo = {
+  limit: string;
+  retryAfterSeconds: number;
+};
+
+export type IngestResult = {
+  attempted: boolean;
+  ok: boolean;
+  skipped: boolean;
+  reason: string | null;
+  status: number | null;
+  body: string | null;
+};
+
 export type ProbeSuccess = {
   ok: true;
   layer: "vercel-function-chromium";
@@ -41,7 +55,8 @@ export type ProbeSuccess = {
   restriction: null;
   screenshotJpegBase64: string | null;
   notes: string[];
-  probeRemaining: number;
+  rateLimit: RateLimitInfo;
+  ingest: IngestResult | null;
 };
 
 export type ProbeFailure = {
@@ -50,9 +65,10 @@ export type ProbeFailure = {
   collectedAtUtc: string;
   collectedAtBeijing: string;
   restriction: Restriction;
-  probeRemaining: number;
   screenshotJpegBase64: string | null;
   notes: string[];
+  rateLimit: RateLimitInfo;
+  ingest: IngestResult | null;
 };
 
 export type ProbeResult = ProbeSuccess | ProbeFailure;

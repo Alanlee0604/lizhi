@@ -13,5 +13,6 @@ export const TARGET_SONGS: TargetSong[] = [
   { id: "anqi-ice-in-my-walk", artist: "安崎", title: "Ice In My Walk" },
 ];
 
-export const MAX_MANUAL_PROBES = 2;
 export const PROBE_TIMEOUT_MS = 90_000;
+export const RATE_LIMIT_WINDOW_MS = 60_000;
+export const DEFAULT_INGEST_URL = "https://votes.alan0828.cloud/api/ingest";
