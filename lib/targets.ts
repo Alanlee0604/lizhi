@@ -16,3 +16,4 @@ export const TARGET_SONGS: TargetSong[] = [
 export const PROBE_TIMEOUT_MS = 90_000;
 export const RATE_LIMIT_WINDOW_MS = 60_000;
 export const DEFAULT_INGEST_URL = "https://votes.alan0828.cloud/api/ingest";
+export const DEFAULT_STATE_URL = "https://votes.alan0828.cloud/api/state";

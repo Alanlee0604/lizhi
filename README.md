@@ -9,6 +9,8 @@
 
 读取对象：`《打歌2026·X舞台》第9期鲜打专区` 中黄灿灿《早上坏》、安崎《Ice In My Walk》的**可见**总票 / 排名 / 源更新时间。三平台（ai荔枝 / 酷狗 / QQ音乐）分项只在公开页对该歌曲可见时读取，缺失为 `null`，不用 `0` 填。
 
+主页是票仓历史站：只读共享 `https://votes.alan0828.cloud/api/state`（**共享原库，不是迁库/复制搬库**）。`GET /api/history` 原样整理快照后展示完整源时间序列。缺样本为「缺口」，分项 null 为「未提供」。`POST /api/probe` 鉴权与 URL 不变。
+
 ## 运行分层
 
 | 层 | 是什么 | 本仓库是否当作“已部署成功” |
@@ -20,6 +22,20 @@
 官方路径：Function + `puppeteer-core` + `@sparticuz/chromium`（[KB](https://vercel.com/kb/guide/deploying-puppeteer-with-nextjs-on-vercel)）。不建 Vercel Cron（Hobby 无 cron）。定时由**外部 Cloudflare Worker** 每 5 分钟 POST（源码在 `cf-worker/`，由父 bot 启用）。
 
 Hobby Functions 额度：300s / 2GB / 4h Active CPU / 360 GB-hrs / 1M 调用。[Limits](https://vercel.com/docs/functions/limitations) · [Pricing](https://vercel.com/docs/functions/usage-and-pricing)
+
+## 票仓主页（共享原库，非迁库）
+
+```
+浏览器 → GET / 与 GET /api/history（本项目只读）
+                ↓
+        https://votes.alan0828.cloud/api/state
+                ↓
+        既有 D1 / Worker 原库（不复制、不写入、不清除）
+```
+
+- 主页展示两人完整源时间历史，不只最新一条。
+- 历史人工 `historical_observation` 标明「非实时」。
+- 绑定用户自己的域名只需在本 Vercel 项目添加 Domain，并把 DNS CNAME 到 `cname.vercel-dns.com`（**说明，不执行**）。现域名 `votes.alan0828.cloud` 保持不动。
 
 ## 鉴权与速率
 
