@@ -1,50 +1,40 @@
-import { CHART_TITLE, DEFAULT_INGEST_URL, PERIOD, ZONE_NAME } from "./targets";
-import type { IngestResult, ProbeSuccess } from "./types";
+import { DEFAULT_INGEST_URL } from "./targets";
+import type { IngestResult, PlatformVotes, ProbeSuccess, SongReading } from "./types";
 
-export type IngestPayload = {
-  source: "lizhi-readonly-verify";
-  collector: "vercel-function-chromium";
-  chartTitle: string;
-  period: string;
-  zoneName: string;
+export type IngestArtistRecord = {
+  title: string;
+  rank: number | null;
+  totalVotes: number | null;
   sourceUpdateText: string | null;
   collectedAtUtc: string;
   collectedAtBeijing: string;
-  songs: Array<{
-    artist: string;
-    title: string;
-    rank: number | null;
-    totalVotes: number | null;
-    platforms: {
-      lizhi: number | null;
-      kugou: number | null;
-      qqMusic: number | null;
-    };
-  }>;
+  platforms: PlatformVotes;
 };
 
-export function buildIngestPayload(result: ProbeSuccess): IngestPayload {
+export type IngestPayload = Record<string, IngestArtistRecord>;
+
+function recordFor(song: SongReading, result: ProbeSuccess): IngestArtistRecord {
   return {
-    source: "lizhi-readonly-verify",
-    collector: "vercel-function-chromium",
-    chartTitle: result.chartTitle || CHART_TITLE,
-    period: result.period || PERIOD,
-    zoneName: result.zoneName || ZONE_NAME,
+    title: song.title,
+    rank: song.rank,
+    totalVotes: song.totalVotes,
     sourceUpdateText: result.sourceUpdateText,
     collectedAtUtc: result.collectedAtUtc,
     collectedAtBeijing: result.collectedAtBeijing,
-    songs: result.songs.map((song) => ({
-      artist: song.artist,
-      title: song.title,
-      rank: song.rank,
-      totalVotes: song.totalVotes,
-      platforms: {
-        lizhi: song.platforms.lizhi,
-        kugou: song.platforms.kugou,
-        qqMusic: song.platforms.qqMusic,
-      },
-    })),
+    platforms: {
+      lizhi: song.platforms.lizhi,
+      kugou: song.platforms.kugou,
+      qqMusic: song.platforms.qqMusic,
+    },
   };
+}
+
+export function buildIngestPayload(result: ProbeSuccess): IngestPayload {
+  const payload: IngestPayload = {};
+  for (const song of result.songs) {
+    payload[song.artist] = recordFor(song, result);
+  }
+  return payload;
 }
 
 export async function postIngest(result: ProbeSuccess): Promise<IngestResult> {

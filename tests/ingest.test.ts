@@ -45,16 +45,19 @@ function sample(): ProbeSuccess {
 }
 
 describe("ingest payload", () => {
-  it("sends rank, total votes, source update time and null platforms without using 0", () => {
+  it("uses 黄灿灿/安崎 as the only top-level keys and keeps missing platforms null", () => {
     const payload = buildIngestPayload(sample());
-    assert.equal(payload.source, "lizhi-readonly-verify");
-    assert.equal(payload.sourceUpdateText, "更新至17:10");
-    assert.equal(payload.songs[0]?.totalVotes, 51008);
-    assert.equal(payload.songs[0]?.rank, 1);
-    assert.equal(payload.songs[0]?.platforms.lizhi, null);
-    assert.equal(payload.songs[1]?.platforms.kugou, 12);
-    assert.equal(payload.songs[1]?.platforms.qqMusic, null);
-    assert.equal("screenshotJpegBase64" in payload, false);
+    assert.deepEqual(Object.keys(payload).sort(), ["安崎", "黄灿灿"].sort());
+    assert.equal(payload["黄灿灿"]?.title, "早上坏");
+    assert.equal(payload["黄灿灿"]?.totalVotes, 51008);
+    assert.equal(payload["黄灿灿"]?.rank, 1);
+    assert.equal(payload["黄灿灿"]?.sourceUpdateText, "更新至17:10");
+    assert.equal(payload["黄灿灿"]?.platforms.lizhi, null);
+    assert.equal(payload["安崎"]?.title, "Ice In My Walk");
+    assert.equal(payload["安崎"]?.platforms.kugou, 12);
+    assert.equal(payload["安崎"]?.platforms.qqMusic, null);
+    assert.equal("source" in payload, false);
+    assert.equal("songs" in payload, false);
   });
 });
 
