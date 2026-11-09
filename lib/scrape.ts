@@ -131,7 +131,7 @@ export async function scrapeVisibleChart(options: {
     if (parsed.songs.some((song) => !song.found)) {
       notes.push("至少一首目标歌曲未在鲜打专区可见文本中解析到完整行。");
     }
-    if (parsed.songs.every((song) => song.platforms.lizhi == null && song.platforms.kugou == null && song.platforms.qqMusic == null)) {
+    if (parsed.songs.every((song) => song.platforms.aiLizhi == null && song.platforms.kugou == null && song.platforms.qqMusic == null)) {
       notes.push("公开页未见ai荔枝/酷狗/QQ音乐分项数字，分项保持 null。");
     }
 

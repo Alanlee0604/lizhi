@@ -1,34 +1,73 @@
 import { DEFAULT_INGEST_URL } from "./targets";
-import type { IngestResult, PlatformVotes, ProbeSuccess, SongReading } from "./types";
+import { combineShanghaiClock, isPositiveInt } from "./source-time";
+import type { ArtistId, IngestResult, ProbeSuccess, SongReading } from "./types";
+
+const ALLOWED_ARTIST_IDS = new Set<ArtistId>(["anqi", "huangcancan"]);
 
 export type IngestArtistRecord = {
-  artist: string;
-  title: string;
+  artistId: ArtistId;
+  total: number;
+  sourceDisplayedUpdatedAt: string;
   rank: number | null;
-  totalVotes: number | null;
-  votes: number | null;
-  sourceUpdateText: string | null;
-  collectedAtUtc: string;
-  collectedAtBeijing: string;
-  platforms: PlatformVotes;
+  collectedAt: string;
+  platforms: {
+    aiLizhi: number | null;
+    kugou: number | null;
+    qqMusic: number | null;
+  };
+  origin: "public_html";
+  liveCollector: true;
+  observer: "vercel_function_chromium";
+  sourceId: "yobang-x-plan-p9";
+  notes: string;
+  rawExcerpt: string;
 };
 
+function nonNegativeIntOrNull(value: number | null | undefined): number | null {
+  if (value == null) return null;
+  if (!Number.isInteger(value) || value < 0) return null;
+  return value;
+}
+
+function platformsFor(song: SongReading): IngestArtistRecord["platforms"] {
+  return {
+    aiLizhi: nonNegativeIntOrNull(song.platforms.aiLizhi),
+    kugou: nonNegativeIntOrNull(song.platforms.kugou),
+    qqMusic: nonNegativeIntOrNull(song.platforms.qqMusic),
+  };
+}
+
 export function buildIngestRecords(result: ProbeSuccess): IngestArtistRecord[] {
-  return result.songs.map((song: SongReading) => ({
-    artist: song.artist,
-    title: song.title,
-    rank: song.rank,
-    totalVotes: song.totalVotes,
-    votes: song.totalVotes,
-    sourceUpdateText: result.sourceUpdateText,
-    collectedAtUtc: result.collectedAtUtc,
-    collectedAtBeijing: result.collectedAtBeijing,
-    platforms: {
-      lizhi: song.platforms.lizhi,
-      kugou: song.platforms.kugou,
-      qqMusic: song.platforms.qqMusic,
-    },
-  }));
+  const sourceDisplayedUpdatedAt = combineShanghaiClock(
+    result.sourceUpdateText,
+    new Date(result.collectedAtUtc),
+  );
+  if (!sourceDisplayedUpdatedAt) return [];
+
+  const records: IngestArtistRecord[] = [];
+  for (const song of result.songs) {
+    if (!song.found) continue;
+    if (!ALLOWED_ARTIST_IDS.has(song.artistId)) continue;
+    if (!isPositiveInt(song.totalVotes)) continue;
+    records.push({
+      artistId: song.artistId,
+      total: song.totalVotes,
+      sourceDisplayedUpdatedAt,
+      rank: isPositiveInt(song.rank) ? song.rank : null,
+      collectedAt: result.collectedAtUtc,
+      platforms: platformsFor(song),
+      origin: "public_html",
+      liveCollector: true,
+      observer: "vercel_function_chromium",
+      sourceId: "yobang-x-plan-p9",
+      notes: "visible public chart DOM; missing platform counts left null, not 0",
+      rawExcerpt: `${result.sourceUpdateText || ""} ${song.artist} ${song.title} rank=${song.rank} total=${song.totalVotes}`.slice(
+        0,
+        4000,
+      ),
+    });
+  }
+  return records;
 }
 
 async function postOne(
@@ -54,6 +93,10 @@ async function postOne(
   }
 }
 
+function ingestAccepted(status: number): boolean {
+  return status === 200 || status === 201;
+}
+
 export async function postIngest(result: ProbeSuccess): Promise<IngestResult> {
   const token = process.env.INGEST_TOKEN;
   if (!token) {
@@ -67,8 +110,19 @@ export async function postIngest(result: ProbeSuccess): Promise<IngestResult> {
     };
   }
 
-  const url = process.env.INGEST_URL || DEFAULT_INGEST_URL;
   const records = buildIngestRecords(result);
+  if (records.length === 0) {
+    return {
+      attempted: false,
+      ok: false,
+      skipped: true,
+      reason: "no ingestable rows (need artistId anqi|huangcancan, positive total, parseable sourceDisplayedUpdatedAt).",
+      status: null,
+      body: null,
+    };
+  }
+
+  const url = process.env.INGEST_URL || DEFAULT_INGEST_URL;
   const parts: string[] = [];
   let ok = true;
   let lastStatus: number | null = null;
@@ -76,8 +130,8 @@ export async function postIngest(result: ProbeSuccess): Promise<IngestResult> {
     for (const record of records) {
       const posted = await postOne(url, token, record);
       lastStatus = posted.status;
-      parts.push(`${record.artist}:${posted.status}:${posted.body}`);
-      if (posted.status < 200 || posted.status >= 300) ok = false;
+      parts.push(`${record.artistId}:${posted.status}:${posted.body}`);
+      if (!ingestAccepted(posted.status)) ok = false;
     }
     return {
       attempted: true,

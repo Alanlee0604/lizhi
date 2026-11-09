@@ -1,17 +1,21 @@
+export type ArtistId = "anqi" | "huangcancan";
+
 export type PlatformVotes = {
-  lizhi: number | null;
+  aiLizhi: number | null;
   kugou: number | null;
   qqMusic: number | null;
 };
 
 export type TargetSong = {
   id: string;
+  artistId: ArtistId;
   artist: string;
   title: string;
 };
 
 export type SongReading = {
   id: string;
+  artistId: ArtistId;
   artist: string;
   title: string;
   found: boolean;

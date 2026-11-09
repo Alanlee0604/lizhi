@@ -25,7 +25,10 @@ export default function Page() {
           外部 Cloudflare Worker 每 5 分钟 <code>POST /api/probe</code>。鉴权用 <code>PROBE_TOKEN</code>，可选{" "}
           <code>CRON_SECRET</code>。速率限制 1 次/分钟，不再使用全项目 2 次上限。
         </li>
-        <li>成功读取后由本 Function 使用 <code>INGEST_TOKEN</code> POST 到 votes ingest。首页不会自动打开浏览器。</li>
+        <li>
+          成功读取后由本 Function 使用 <code>INGEST_TOKEN</code> 按 <code>artistId</code>（
+          <code>anqi</code> / <code>huangcancan</code>）各 POST 一次 ingest。缺分项为 null。首页不会自动打开浏览器。
+        </li>
       </ul>
 
       <ProbePanel />

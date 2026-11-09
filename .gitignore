@@ -3,6 +3,8 @@ node_modules
 .vercel
 .env
 .env*.local
+cf-worker/.dev.vars
+cf-worker/node_modules
 *.tsbuildinfo
 artifacts
 .DS_Store

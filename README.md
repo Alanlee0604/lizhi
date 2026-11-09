@@ -17,7 +17,7 @@
 | B. Vercel Sandbox | `@vercel/sandbox` 里跑 Chrome | 否。Sandbox 跑通 ≠ Function 跑通 |
 | C. 已部署 Vercel Function | `POST /api/probe` 在 Function 进程内启动 Chromium | **是** |
 
-官方路径：Function + `puppeteer-core` + `@sparticuz/chromium`（[KB](https://vercel.com/kb/guide/deploying-puppeteer-with-nextjs-on-vercel)）。不建 Vercel Cron（Hobby 无 cron）。定时由**外部 Cloudflare Worker** 每 5 分钟 POST。
+官方路径：Function + `puppeteer-core` + `@sparticuz/chromium`（[KB](https://vercel.com/kb/guide/deploying-puppeteer-with-nextjs-on-vercel)）。不建 Vercel Cron（Hobby 无 cron）。定时由**外部 Cloudflare Worker** 每 5 分钟 POST（源码在 `cf-worker/`，由父 bot 启用）。
 
 Hobby Functions 额度：300s / 2GB / 4h Active CPU / 360 GB-hrs / 1M 调用。[Limits](https://vercel.com/docs/functions/limitations) · [Pricing](https://vercel.com/docs/functions/usage-and-pricing)
 
@@ -30,7 +30,7 @@ Hobby Functions 额度：300s / 2GB / 4h Active CPU / 360 GB-hrs / 1M 调用。[
 
 ## Cloudflare Worker 调用示例
 
-部署保护保持开启。Worker **不要**指望公开 URL。使用官方 [Protection Bypass for Automation](https://vercel.com/docs/deployment-protection/methods-to-bypass-deployment-protection/protection-bypass-automation)：
+部署保护保持开启。Worker **不要**指望公开 URL。使用官方 [Protection Bypass for Automation](https://vercel.com/docs/deployment-protection/methods-to-bypass-deployment-protection/protection-bypass-automation)。可运行源码见 `cf-worker/`（**cron 未启用**；`STOP_AT` 必填，活动结束时间未确认，禁止写死）。
 
 ```http
 POST /api/probe HTTP/1.1
@@ -38,6 +38,8 @@ Host: lizhi-readonly-verify.vercel.app
 Authorization: Bearer ${PROBE_TOKEN}
 x-vercel-protection-bypass: ${VERCEL_AUTOMATION_BYPASS_SECRET}
 Content-Type: application/json
+
+{}
 ```
 
 ```js
@@ -61,9 +63,10 @@ export default {
 
 | 变量 | 谁配置 | 用途 |
 | --- | --- | --- |
-| `PROBE_URL` | CF Worker | `https://<deployment>/api/probe` |
+| `PROBE_URL` | CF Worker | `https://lizhi-readonly-verify.vercel.app/api/probe` |
 | `PROBE_TOKEN` | CF Worker 与 Vercel 项目 | 应用层鉴权 |
 | `VERCEL_AUTOMATION_BYPASS_SECRET` | CF Worker；Vercel 项目可自动注入 | 部署保护 bypass 头 |
+| `STOP_AT` | CF Worker，**必填** | 到期停止探测；须带时区的可解析时间 |
 | `INGEST_TOKEN` | **仅 Vercel 项目** | Function 成功后 POST ingest，Worker 不必拿它 |
 
 不能设自定义头时可用查询参数（不如请求头安全）：
@@ -72,21 +75,27 @@ export default {
 
 浏览器调试可另加 `x-vercel-set-bypass-cookie: true`。调试截图用 `POST /api/probe?screenshot=1`。
 
-成功后 Function 会对每位艺人各 POST 一次 `https://votes.alan0828.cloud/api/ingest`（`Authorization: Bearer $INGEST_TOKEN`）。现网对非「安崎/黄灿灿」的 `artist` 返回 400。截图不会入库。
+## 入库契约（每艺人单独 POST）
+
+成功读取后 Function 对每位艺人各 POST 一次 `https://votes.alan0828.cloud/api/ingest`（`Authorization: Bearer $INGEST_TOKEN`）。`artistId` **只能**是 `anqi` 或 `huangcancan`，不是中文名。新写入 201，按 `artistId` + 源站时间去重则 200。缺三平台数字保持 `null`，不写 `0`。`total` 必须是正整数，否则跳过该行。
 
 ```json
 {
-  "artist": "黄灿灿",
-  "title": "早上坏",
+  "artistId": "huangcancan",
+  "total": 52566,
   "rank": 1,
-  "totalVotes": 51981,
-  "votes": 51981,
-  "sourceUpdateText": "更新至17:40",
-  "collectedAtUtc": "2026-11-09T09:44:37.202Z",
-  "collectedAtBeijing": "2026/11/09 17:44:37",
-  "platforms": { "lizhi": null, "kugou": null, "qqMusic": null }
+  "sourceDisplayedUpdatedAt": "2026-11-09T17:50:00+08:00",
+  "collectedAt": "2026-11-09T09:57:05.477Z",
+  "platforms": { "aiLizhi": null, "kugou": null, "qqMusic": null },
+  "origin": "public_html",
+  "liveCollector": true,
+  "observer": "vercel_function_chromium",
+  "sourceId": "yobang-x-plan-p9",
+  "notes": "visible public chart DOM; missing platform counts left null, not 0"
 }
 ```
+
+`sourceDisplayedUpdatedAt` 由可见「更新至HH:MM」与采集时的上海日历日合成（带 `+08:00`）。截图不会入库。
 
 ## 安全边界
 
@@ -94,6 +103,7 @@ export default {
 - 不监听页面网络、不调用未公开 API、不伪装 QQ 音乐客户端、不绕过登录/captcha/风控。
 - 不点击「去支持」或平台投票入口。不使用 Cloudflare Browser Run。
 - 不修改 SuperLIVE 或现网 Worker 源码。本仓库只作为 ingest 的客户端。
+- 本 agent 不启用 Cloudflare 定时器。
 
 ## 本地
 

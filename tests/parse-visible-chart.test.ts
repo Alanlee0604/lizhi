@@ -40,17 +40,17 @@ describe("parse visible 鲜打专区 text", () => {
   it("keeps missing platform breakdowns as null instead of 0", () => {
     const parsed = readTargetSongs(fixture);
     for (const song of parsed.songs) {
-      assert.equal(song.platforms.lizhi, null);
+      assert.equal(song.platforms.aiLizhi, null);
       assert.equal(song.platforms.kugou, null);
       assert.equal(song.platforms.qqMusic, null);
     }
     assert.deepEqual(parsePlatformVotes("早上坏\n50,715\n票"), {
-      lizhi: null,
+      aiLizhi: null,
       kugou: null,
       qqMusic: null,
     });
     assert.deepEqual(parsePlatformVotes("早上坏\nai荔枝 12\n酷狗 8\nQQ音乐 5"), {
-      lizhi: 12,
+      aiLizhi: 12,
       kugou: 8,
       qqMusic: 5,
     });

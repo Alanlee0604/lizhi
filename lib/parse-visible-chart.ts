@@ -2,7 +2,7 @@ import { PERIOD, TARGET_SONGS, ZONE_NAME } from "./targets";
 import type { PlatformVotes, SongReading } from "./types";
 
 const PLATFORM_LABELS = {
-  lizhi: ["ai荔枝", "荔枝"],
+  aiLizhi: ["ai荔枝", "荔枝"],
   kugou: ["酷狗"],
   qqMusic: ["QQ音乐", "qq音乐"],
 } as const;
@@ -91,7 +91,7 @@ export function parseSongRows(zoneText: string): Array<{
 }
 
 export function parsePlatformVotes(block: string): PlatformVotes {
-  const result: PlatformVotes = { lizhi: null, kugou: null, qqMusic: null };
+  const result: PlatformVotes = { aiLizhi: null, kugou: null, qqMusic: null };
   (Object.keys(PLATFORM_LABELS) as Array<keyof typeof PLATFORM_LABELS>).forEach((key) => {
     for (const label of PLATFORM_LABELS[key]) {
       const numbered = block.match(new RegExp(`${label}\\s*[:：]?\\s*([\\d,]+)`));
@@ -126,7 +126,7 @@ export function readTargetSongs(visibleText: string): {
         found: false,
         rank: null,
         totalVotes: null,
-        platforms: { lizhi: null, kugou: null, qqMusic: null },
+        platforms: { aiLizhi: null, kugou: null, qqMusic: null },
       };
     }
     return {
