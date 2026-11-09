@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import type { HistorySnapshot, TimelineRow } from "../lib/history";
+import type { HistorySnapshot } from "../lib/history";
+import type { ObservationRow } from "../lib/observations";
 import { metricValue, pathFor, seriesValues, toggleMetric } from "../lib/trend";
 
 function snap(partial: Partial<HistorySnapshot> & Pick<HistorySnapshot, "id" | "artistId" | "sourceDisplayedUpdatedAt">): HistorySnapshot {
@@ -52,15 +53,19 @@ describe("selectable trend metrics", () => {
   });
 
   it("does not stitch 安崎爱荔枝 onto a 黄灿灿-only source time", () => {
-    const timeline: TimelineRow[] = [
+    const timeline: ObservationRow[] = [
       {
+        collectedAt: "2026-11-09T08:55:01.000Z",
+        collectedLabel: "16:55",
         sourceDisplayedUpdatedAt: "2026-11-09T08:50:00.000Z",
         sourceLabel: "16:50",
+        sourceUnchanged: false,
         anqi: null,
         huangcancan: snap({
           id: "h",
           artistId: "huangcancan",
           sourceDisplayedUpdatedAt: "2026-11-09T08:50:00.000Z",
+          collectedAt: "2026-11-09T08:55:01.000Z",
           total: 50372,
           platforms: { aiLizhi: 23289, kugou: 8076, qqMusic: 19007 },
         }),

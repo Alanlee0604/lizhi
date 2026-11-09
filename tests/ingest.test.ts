@@ -65,6 +65,8 @@ describe("ingest payload", () => {
     assert.equal(records[1]?.artistId, "anqi");
     assert.equal(records[1]?.platforms.kugou, 12);
     assert.equal(records[1]?.platforms.qqMusic, null);
+    assert.match(records[0]?.rawExcerpt || "", /obsj:\{"aiLizhi":null,"kugou":null,"qqMusic":null\}/);
+    assert.match(records[1]?.rawExcerpt || "", /obsj:\{"aiLizhi":null,"kugou":12,"qqMusic":null\}/);
     assert.equal("artist" in (records[0] || {}), false);
     assert.equal("lizhi" in (records[0]?.platforms || {}), false);
   });

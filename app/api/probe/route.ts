@@ -13,7 +13,7 @@ export async function GET() {
     {
       ok: false,
       error: "method_not_allowed",
-      hint: "POST /api/probe with Authorization: Bearer <PROBE_TOKEN>. Optional CRON_SECRET. Rate limit 1/min for a 5-minute Cloudflare timer.",
+      hint: "POST /api/probe with Authorization: Bearer <PROBE_TOKEN>. Optional CRON_SECRET. Rate limit 1/min for a 2-minute Cloudflare timer.",
     },
     { status: 405 },
   );

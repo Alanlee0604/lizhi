@@ -7,6 +7,7 @@ import {
   platformCell,
   type HistoryPayload,
 } from "@/lib/history";
+import { OBSERVATION_CADENCE_MINUTES } from "@/lib/observations";
 import { TrendChart } from "./trend-chart";
 
 function Delta({ value }: { value: number | null | undefined }) {
@@ -17,7 +18,7 @@ function Delta({ value }: { value: number | null | undefined }) {
 }
 
 export function HistoryDashboard({ history }: { history: HistoryPayload }) {
-  const { edition, counts, collector, artists, timeline, architecture } = history;
+  const { edition, counts, collector, artists, timeline, observations, architecture, observationRetention } = history;
 
   return (
     <main className="dash">
@@ -29,18 +30,20 @@ export function HistoryDashboard({ history }: { history: HistoryPayload }) {
         <h1>安崎 / 黄灿灿 公开榜票仓</h1>
         <p className="lede">
           只追踪这两人。页面只读共享原库 <code>{architecture.source}</code>
-          ，<strong>不是迁库、不是复制搬库</strong>。分项缺失显示「未提供」，某一源时间缺样本显示「缺口」，都不会写成 0。历史人工观测会标明非实时。
+          ，<strong>不是迁库、不是复制搬库</strong>。折线横轴是<strong>检查时间（约每 {OBSERVATION_CADENCE_MINUTES}{" "}
+          分钟）</strong>，与<strong>源站更新时间（目前约 10 分钟一跳）</strong>不是同一件事。分项缺失显示「未提供」，缺检查显示「缺口」，都不会写成 0。
         </p>
         <p className="meta">
-          本页刷新 {history.fetchedAtBeijing}（北京时间）· 源时间 {counts.sourceFrom ? formatShanghai(counts.sourceFrom) : "—"} →{" "}
-          {counts.sourceTo ? formatShanghai(counts.sourceTo) : "—"} · 快照 {counts.snapshots} 条（黄灿灿 {counts.huangcancan} / 安崎{" "}
-          {counts.anqi}）· {counts.sourceTimes} 个源时间 · 三端全数字 {counts.platformsAllNumeric} / 全未提供 {counts.platformsAllNull}
+          本页刷新 {history.fetchedAtBeijing}（北京时间）· 检查 {counts.observations} 轮（
+          {counts.observationFrom ? formatShanghai(counts.observationFrom) : "—"} →{" "}
+          {counts.observationTo ? formatShanghai(counts.observationTo) : "—"}）· 源去重快照 {counts.snapshots} 条 / {counts.sourceTimes}{" "}
+          个源时间 · 旧 API 本窗 attempts {counts.attemptsReturned} 条
         </p>
         <p className="meta">
-          采集侧最近成功 {collector.lastSuccessAt ? formatShanghai(collector.lastSuccessAt) : "未提供"}
-          {collector.lastKind ? ` · ${collector.lastKind}` : ""}
-          {collector.cadenceMinutes ? ` · 约每 ${collector.cadenceMinutes} 分钟` : ""}
-          。旧 API 无浏览器 CORS，本页由服务端只读拉取。计数以线上实时为准。
+          采集频次约每 {OBSERVATION_CADENCE_MINUTES} 分钟（attempt.at）。源库 collector 自报
+          {collector.cadenceMinutes ? `约每 ${collector.cadenceMinutes} 分钟` : "未提供"}，那是源站/旧采集字段，不是本图横轴。最近成功{" "}
+          {collector.lastSuccessAt ? formatShanghai(collector.lastSuccessAt) : "未提供"}
+          {collector.lastKind ? ` · ${collector.lastKind}` : ""}。{observationRetention.note}
         </p>
       </header>
 
@@ -94,12 +97,12 @@ export function HistoryDashboard({ history }: { history: HistoryPayload }) {
       </section>
 
       <section>
-        <h2>历史趋势</h2>
+        <h2>历史趋势（2 分钟检查）</h2>
         <p className="muted">
-          按源站更新时间排列。可勾选实际总票 / 爱荔枝 / 酷狗 / QQ音乐，支持多选对比。没有样本或分项为 null
-          的点不连线，不画成 0，也不跨时间拼接。
+          按检查时间排列，同一源更新时间的重复 200 检查仍保留该轮票数。可勾选实际总票 / 爱荔枝 / 酷狗 / QQ音乐。历史 attempts
+          若无 obsj 则三端为未提供，不从后来快照回填。失败/null 断线，不画成 0。
         </p>
-        <TrendChart timeline={timeline} />
+        <TrendChart observations={observations} />
       </section>
 
       {history.collectionGaps.length > 0 ? (
@@ -117,7 +120,55 @@ export function HistoryDashboard({ history }: { history: HistoryPayload }) {
       ) : null}
 
       <section>
-        <h2>历史明细</h2>
+        <h2>2 分钟观测明细</h2>
+        <p className="muted">每一行是一次检查（attempt.at）。「源未更新」表示源站时间与上一轮相同，票数仍是该轮 rawExcerpt 实读。</p>
+        <div className="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>检查时间</th>
+                <th>源更新时间</th>
+                <th>源站</th>
+                <th>安崎总票</th>
+                <th>安崎 ai荔枝</th>
+                <th>安崎酷狗</th>
+                <th>安崎QQ</th>
+                <th>灿灿总票</th>
+                <th>灿灿 ai荔枝</th>
+                <th>灿灿酷狗</th>
+                <th>灿灿QQ</th>
+              </tr>
+            </thead>
+            <tbody>
+              {observations.length === 0 ? (
+                <tr>
+                  <td colSpan={11}>当前 attempts 窗口没有可解析的检查观测。</td>
+                </tr>
+              ) : (
+                observations.map((row) => (
+                  <tr key={row.collectedAt}>
+                    <td>{row.collectedLabel}</td>
+                    <td>{row.sourceLabel || "未提供"}</td>
+                    <td>{row.sourceUnchanged ? "未更新" : "已更新"}</td>
+                    <td>{cellOrGap(row.anqi, "total")}</td>
+                    <td>{platformCell(row.anqi, "aiLizhi")}</td>
+                    <td>{platformCell(row.anqi, "kugou")}</td>
+                    <td>{platformCell(row.anqi, "qqMusic")}</td>
+                    <td>{cellOrGap(row.huangcancan, "total")}</td>
+                    <td>{platformCell(row.huangcancan, "aiLizhi")}</td>
+                    <td>{platformCell(row.huangcancan, "kugou")}</td>
+                    <td>{platformCell(row.huangcancan, "qqMusic")}</td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section>
+        <h2>源站去重快照（约 10 分钟）</h2>
+        <p className="muted">旧库 UNIQUE(artist, sourceDisplayedUpdatedAt)。相同源时间只留一条，不是 2 分钟观测轴。</p>
         <div className="table-wrap">
           <table>
             <thead>

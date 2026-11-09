@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import type { TimelineRow } from "@/lib/history";
+import type { ObservationRow } from "@/lib/observations";
 import {
   DEFAULT_TREND_METRICS,
   TREND_METRICS,
@@ -33,9 +33,9 @@ const SERIES_STYLE: Record<
   },
 };
 
-export function TrendChart({ timeline }: { timeline: TimelineRow[] }) {
+export function TrendChart({ observations }: { observations: ObservationRow[] }) {
   const [selected, setSelected] = useState<TrendMetric[]>(DEFAULT_TREND_METRICS);
-  const chronological = useMemo(() => [...timeline].reverse(), [timeline]);
+  const chronological = useMemo(() => [...observations].reverse(), [observations]);
   const n = Math.max(1, chronological.length);
 
   const lines = useMemo(() => {
@@ -54,7 +54,7 @@ export function TrendChart({ timeline }: { timeline: TimelineRow[] }) {
 
   const labels = [chronological[0], chronological[Math.floor((n - 1) / 2)], chronological[n - 1]]
     .filter(Boolean)
-    .map((row) => row.sourceLabel);
+    .map((row) => row.collectedLabel);
 
   return (
     <figure className="chart">
@@ -77,14 +77,14 @@ export function TrendChart({ timeline }: { timeline: TimelineRow[] }) {
         })}
       </fieldset>
       {lines.nums.length === 0 ? (
-        <p className="muted">所选指标在这些源时间上都是缺口，没有可连的点。不会把未提供画成 0。</p>
+        <p className="muted">所选指标在这些检查时间上都是缺口，没有可连的点。不会把未提供画成 0。</p>
       ) : (
         <svg
           viewBox={`0 0 ${WIDTH} ${HEIGHT}`}
           width="100%"
           height={HEIGHT}
           role="img"
-          aria-label={`源站时间趋势：${selected.map((id) => TREND_METRICS.find((item) => item.id === id)?.label).join("、")}。缺失不连线。`}
+          aria-label={`检查时间趋势：${selected.map((id) => TREND_METRICS.find((item) => item.id === id)?.label).join("、")}。横轴为采集观测时间。缺失不连线。`}
         >
           {(() => {
             const min = Math.min(...lines.nums);
@@ -118,7 +118,7 @@ export function TrendChart({ timeline }: { timeline: TimelineRow[] }) {
                     const y = PAD + (1 - (value - min) / span) * (HEIGHT - 2 * PAD);
                     return (
                       <circle
-                        key={`${row.sourceDisplayedUpdatedAt}-${line.artist}-${line.metric}`}
+                        key={`${row.collectedAt}-${line.artist}-${line.metric}`}
                         cx={x}
                         cy={y}
                         r="3"
@@ -133,8 +133,8 @@ export function TrendChart({ timeline }: { timeline: TimelineRow[] }) {
         </svg>
       )}
       <figcaption className="muted">
-        粉系=黄灿灿，青系=安崎。实线=实际总票，虚线=爱荔枝，点线=酷狗，点划线=QQ音乐。横轴是源站更新时间；null
-        不画成 0，线在缺口处断开。默认勾选实际总票，可多选对比。
+        粉系=黄灿灿，青系=安崎。实线=实际总票，虚线=爱荔枝，点线=酷狗，点划线=QQ音乐。横轴是检查/采集时间（约每 2
+        分钟），不是源站更新时间。源未更新时保留该轮 rawExcerpt 实读票数并标明源时间。null 不画成 0。默认勾选实际总票。
         {labels.length ? ` 范围 ${labels[0]} → ${labels[labels.length - 1]}。` : ""}
       </figcaption>
     </figure>

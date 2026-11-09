@@ -1,6 +1,6 @@
 # lizhi-readonly-verify probe cron (Cloudflare Worker)
 
-独立 Worker：每 5 分钟（由**父 bot** 启用定时器）`POST` 已部署的 Vercel ` /api/probe`。不使用 Cloudflare Browser Rendering，不入库，不改 votes / SuperLIVE。
+独立 Worker：每 2 分钟（由**父 bot** 启用定时器）`POST` 已部署的 Vercel ` /api/probe`。不使用 Cloudflare Browser Rendering，不入库，不改 votes / SuperLIVE。本文件不启用 cron。
 
 本仓库只提供源码。**不要在本 agent 里 `wrangler deploy` 或绑定 cron。**
 

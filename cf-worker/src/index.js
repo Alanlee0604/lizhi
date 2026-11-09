@@ -2,7 +2,7 @@
  * Independent Cloudflare Worker: POST the already-deployed Vercel probe.
  * Does not use Cloudflare Browser Rendering. Does not ingest. Does not
  * enable cron by itself — parent bot sets secrets + STOP_AT and attaches
- * a 5-minute schedule after review.
+ * a 2-minute schedule after review. This file must not enable cron.
  */
 
 const PROBE_TIMEOUT_MS = 110_000;

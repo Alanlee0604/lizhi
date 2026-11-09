@@ -1,4 +1,4 @@
-import type { HistorySnapshot, TimelineRow } from "./history";
+import type { ObservationArtist, ObservationRow } from "./observations";
 
 export type TrendMetric = "total" | "aiLizhi" | "kugou" | "qqMusic";
 
@@ -11,7 +11,7 @@ export const TREND_METRICS: Array<{ id: TrendMetric; label: string }> = [
 
 export const DEFAULT_TREND_METRICS: TrendMetric[] = ["total"];
 
-export function metricValue(snapshot: HistorySnapshot | null | undefined, metric: TrendMetric): number | null {
+export function metricValue(snapshot: ObservationArtist | null | undefined, metric: TrendMetric): number | null {
   if (!snapshot) return null;
   if (metric === "total") {
     return typeof snapshot.total === "number" ? snapshot.total : null;
@@ -20,7 +20,7 @@ export function metricValue(snapshot: HistorySnapshot | null | undefined, metric
   return typeof value === "number" ? value : null;
 }
 
-export function seriesValues(timeline: TimelineRow[], artist: "anqi" | "huangcancan", metric: TrendMetric): Array<number | null> {
+export function seriesValues(timeline: ObservationRow[], artist: "anqi" | "huangcancan", metric: TrendMetric): Array<number | null> {
   return timeline.map((row) => metricValue(row[artist], metric));
 }
 

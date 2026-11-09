@@ -1,3 +1,4 @@
+import { encodeObservationExcerpt } from "./observations";
 import { DEFAULT_INGEST_URL } from "./targets";
 import { combineShanghaiClock, isPositiveInt } from "./source-time";
 import type { ArtistId, IngestResult, ProbeSuccess, SongReading } from "./types";
@@ -60,11 +61,15 @@ export function buildIngestRecords(result: ProbeSuccess): IngestArtistRecord[] {
       liveCollector: true,
       observer: "vercel_function_chromium",
       sourceId: "yobang-x-plan-p9",
-      notes: "visible public chart DOM; missing platform counts left null, not 0",
-      rawExcerpt: `${result.sourceUpdateText || ""} ${song.artist} ${song.title} rank=${song.rank} total=${song.totalVotes}`.slice(
-        0,
-        4000,
-      ),
+      notes: "visible public chart DOM; missing platform counts left null, not 0; obsj in rawExcerpt is this-round platforms",
+      rawExcerpt: encodeObservationExcerpt({
+        sourceUpdateText: result.sourceUpdateText,
+        artist: song.artist,
+        title: song.title,
+        rank: isPositiveInt(song.rank) ? song.rank : null,
+        total: song.totalVotes,
+        platforms: platformsFor(song),
+      }),
     });
   }
   return records;

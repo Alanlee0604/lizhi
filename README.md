@@ -19,7 +19,7 @@
 | B. Vercel Sandbox | `@vercel/sandbox` 里跑 Chrome | 否。Sandbox 跑通 ≠ Function 跑通 |
 | C. 已部署 Vercel Function | `POST /api/probe` 在 Function 进程内启动 Chromium | **是** |
 
-官方路径：Function + `puppeteer-core` + `@sparticuz/chromium`（[KB](https://vercel.com/kb/guide/deploying-puppeteer-with-nextjs-on-vercel)）。不建 Vercel Cron（Hobby 无 cron）。定时由**外部 Cloudflare Worker** 每 5 分钟 POST（源码在 `cf-worker/`，由父 bot 启用）。
+官方路径：Function + `puppeteer-core` + `@sparticuz/chromium`（[KB](https://vercel.com/kb/guide/deploying-puppeteer-with-nextjs-on-vercel)）。不建 Vercel Cron（Hobby 无 cron）。定时由**外部 Cloudflare Worker** 每 2 分钟 POST（源码在 `cf-worker/`，由父 bot 启用；本 agent 不改 cron / STOP_AT）。
 
 Hobby Functions 额度：300s / 2GB / 4h Active CPU / 360 GB-hrs / 1M 调用。[Limits](https://vercel.com/docs/functions/limitations) · [Pricing](https://vercel.com/docs/functions/usage-and-pricing)
 
@@ -33,7 +33,7 @@ Hobby Functions 额度：300s / 2GB / 4h Active CPU / 360 GB-hrs / 1M 调用。[
         既有 D1 / Worker 原库（不复制、不写入、不清除）
 ```
 
-- 主页展示两人完整源时间历史，不只最新一条。折线图可勾选**实际总票 / 爱荔枝 / 酷狗 / QQ音乐**（多选，默认总票）；null 断线不画 0。计数以**线上实时** `GET /api/state` 为准；父 bot 的 `history-export` 只做审核备份，不替代在线历史。
+- 主页展示两人历史：折线横轴是 **检查时间（约每 2 分钟，`attempt.at`）**，源站更新时间（目前约 10 分钟一跳）单独标明。可勾选**实际总票 / 爱荔枝 / 酷狗 / QQ音乐**（多选，默认总票）；null 断线不画 0。重复 200 检查仍用该轮 `rawExcerpt` 的 total/rank。历史三端只在该轮 `obsj` 存在时显示，不回填。计数以**线上实时** `GET /api/state` 为准。`attempts` 目前滚动约 40 条，更早的 2 分钟点会掉出窗口。
 - 旧 API 无浏览器 CORS，必须本站 **server fetch / GET /api/history 代理**。禁止浏览器直连，禁止批量重放 POST `/api/ingest`。
 - 历史人工 `historical_observation` 标明「非实时」。采集失败缺口单独列出，不会变成票数。
 - 绑定用户自己的域名只需在本 Vercel 项目添加 Domain，并把 DNS CNAME 到 `cname.vercel-dns.com`（**说明，不执行**）。现域名 `votes.alan0828.cloud` 保持不动。
@@ -42,7 +42,7 @@ Hobby Functions 额度：300s / 2GB / 4h Active CPU / 360 GB-hrs / 1M 调用。[
 
 - 主路径：`Authorization: Bearer $PROBE_TOKEN`（或 `x-probe-token`）
 - 可选：`Authorization: Bearer $CRON_SECRET`（或 `x-cron-secret`）。本项目不配置 Vercel cron。
-- **已取消全项目最多 2 次硬限制。** 改为 **1 次/分钟**，覆盖每 5 分钟的 Cloudflare 定时器，并防止滥用。
+- **已取消全项目最多 2 次硬限制。** 改为 **1 次/分钟**，覆盖每 2 分钟的 Cloudflare 定时器，并防止滥用。
 - 超时 90 秒。未授权请求不会启动 Chromium。
 
 ## Cloudflare Worker 调用示例

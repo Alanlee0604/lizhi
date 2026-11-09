@@ -1,3 +1,4 @@
+import { buildObservationRows, OBSERVATION_CADENCE_MINUTES, type ObservationRow } from "./observations";
 import { DEFAULT_STATE_URL } from "./targets";
 import { beijingNow } from "./time";
 import type { ArtistId } from "./types";
@@ -89,9 +90,21 @@ export type HistoryPayload = {
     platformsAllNull: number;
     seriesPoints: number;
     collectionGaps: number;
+    observations: number;
+    observationFrom: string | null;
+    observationTo: string | null;
+    attemptReadings: number;
+    attemptsReturned: number;
+  };
+  observationCadenceMinutes: number;
+  observationRetention: {
+    source: "votes.attempts.rawExcerpt";
+    attemptsReturned: number;
+    note: string;
   };
   artists: HistoryArtistView[];
   timeline: TimelineRow[];
+  observations: ObservationRow[];
   snapshots: HistorySnapshot[];
   collectionGaps: CollectionGap[];
 };
@@ -134,12 +147,18 @@ export function displayRank(value: number | null | undefined): string {
   return String(value);
 }
 
-export function cellOrGap(snapshot: HistorySnapshot | null, field: "total" | "rank"): string {
+export function cellOrGap(
+  snapshot: { total: number | null; rank: number | null } | null,
+  field: "total" | "rank",
+): string {
   if (!snapshot) return "缺口";
   return field === "rank" ? displayRank(snapshot.rank) : displayCount(snapshot.total);
 }
 
-export function platformCell(snapshot: HistorySnapshot | null, key: keyof HistoryPlatforms): string {
+export function platformCell(
+  snapshot: { platforms: HistoryPlatforms } | null,
+  key: keyof HistoryPlatforms,
+): string {
   if (!snapshot) return "缺口";
   return displayCount(snapshot.platforms[key]);
 }
@@ -284,18 +303,21 @@ export function buildHistoryPayload(state: unknown, source = DEFAULT_STATE_URL):
     ? root.snapshots.map(normalizeSnapshot).filter((item): item is HistorySnapshot => item !== null)
     : [];
   const timeline = buildTimeline(snapshots);
+  const observations = buildObservationRows(root.attempts);
   const collectionGaps = collectionGapsOf(root.attempts);
   const collected = beijingNow();
   const sourceTimes = timeline.map((row) => row.sourceDisplayedUpdatedAt);
   const fills = snapshots.map((item) => platformFill(item.platforms));
   const seriesPoints = Array.isArray(root.series) ? root.series.length : timeline.length;
+  const attemptsReturned = Array.isArray(root.attempts) ? root.attempts.length : 0;
+  const observationTimes = observations.map((row) => row.collectedAt);
   return {
     ok: true,
     architecture: {
       mode: "shared-source",
       migrated: false,
       source,
-      note: "只读共享 votes.alan0828.cloud 原数据库，不是复制搬库。旧 API 无 CORS，由本站服务端 GET 代理；不用静态导出替代在线历史。",
+      note: "只读共享 votes.alan0828.cloud 原数据库，不是复制搬库。折线按 attempts 检查时间（约 2 分钟）；源更新时间另计。旧 API 无 CORS，由本站服务端 GET 代理。",
       corsBrowserDirect: false,
     },
     fetchedAtUtc: collected.utc,
@@ -313,6 +335,12 @@ export function buildHistoryPayload(state: unknown, source = DEFAULT_STATE_URL):
       cadenceMinutes: asNumberOrNull(collector.cadenceMinutes),
       note: asStringOrNull(collector.note),
     },
+    observationCadenceMinutes: OBSERVATION_CADENCE_MINUTES,
+    observationRetention: {
+      source: "votes.attempts.rawExcerpt",
+      attemptsReturned,
+      note: `GET /api/state 当前只回传 ${attemptsReturned} 条 attempts（滚动窗口）。2 分钟观测轴只使用这些检查的 rawExcerpt，不把后来的 snapshot 倒推进窗口外的缺口。长期持久化需要独立 observations 表，见 PR。`,
+    },
     counts: {
       snapshots: snapshots.length,
       sourceTimes: timeline.length,
@@ -324,12 +352,18 @@ export function buildHistoryPayload(state: unknown, source = DEFAULT_STATE_URL):
       platformsAllNull: fills.filter((item) => item === "all_null").length,
       seriesPoints,
       collectionGaps: collectionGaps.length,
+      observations: observations.length,
+      observationFrom: observationTimes.at(-1) || null,
+      observationTo: observationTimes[0] || null,
+      attemptReadings: observations.reduce((sum, row) => sum + (row.anqi ? 1 : 0) + (row.huangcancan ? 1 : 0), 0),
+      attemptsReturned,
     },
     artists: [
       artistView(views.huangcancan, "huangcancan", "黄灿灿", snapshots),
       artistView(views.anqi, "anqi", "安崎", snapshots),
     ],
     timeline,
+    observations,
     snapshots,
     collectionGaps,
   };

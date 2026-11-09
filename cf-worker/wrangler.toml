@@ -3,11 +3,11 @@ main = "src/index.js"
 compatibility_date = "2026-11-09"
 
 # Cron is intentionally not enabled in this file.
-# Parent bot attaches `*/5 * * * *` after setting secrets. Do not wrangler deploy
+# Parent bot attaches `*/2 * * * *` after setting secrets. Do not wrangler deploy
 # from the isolated verify agent — enabling the timer is a parent-bot step.
 #
 # [triggers]
-# crons = ["*/5 * * * *"]
+# crons = ["*/2 * * * *"]
 
 # Required secrets / vars (never commit values):
 #   PROBE_URL                         https://lizhi-readonly-verify.vercel.app/api/probe

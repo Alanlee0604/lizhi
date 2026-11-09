@@ -73,7 +73,7 @@ export function rateLimited(retryAfter: number, limit: string): Response {
       error: "rate_limited",
       limit,
       retryAfterSeconds: retryAfter,
-      hint: "Cloudflare timer should POST about every 5 minutes. Abuse cap is 1 call per minute.",
+      hint: "Cloudflare timer should POST about every 2 minutes. Abuse cap is 1 call per minute.",
     },
     {
       status: 429,
