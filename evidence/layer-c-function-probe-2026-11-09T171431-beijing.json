@@ -1,0 +1,33 @@
+{
+  "layer": "vercel-function-chromium",
+  "deploymentUrl": "https://lizhi-readonly-verify-49u3xz0p5-alan-lees-projects-fac5b3c2.vercel.app",
+  "project": "lizhi-readonly-verify",
+  "deploymentId": "dpl_EY59fcCQeDzDoCjusVzZqE2h6AQ7",
+  "gitSha": "b62f2f89c7f0e2c02d01237a4c510bf13cc0832c",
+  "ok": true,
+  "sourceUpdateText": "更新至17:10",
+  "collectedAtUtc": "2026-11-09T09:14:31.826Z",
+  "collectedAtBeijing": "2026/11/09 17:14:31",
+  "songs": [
+    {
+      "artist": "黄灿灿",
+      "title": "早上坏",
+      "rank": 1,
+      "totalVotes": 51008,
+      "platforms": { "lizhi": null, "kugou": null, "qqMusic": null }
+    },
+    {
+      "artist": "安崎",
+      "title": "Ice In My Walk",
+      "rank": 2,
+      "totalVotes": 25457,
+      "platforms": { "lizhi": null, "kugou": null, "qqMusic": null }
+    }
+  ],
+  "restriction": null,
+  "probeRemaining": 1,
+  "notes": [
+    "This is the deployed Vercel Function result, not local Chrome and not Vercel Sandbox.",
+    "Per-song ai荔枝/酷狗/QQ音乐 numbers were not visible on the public list."
+  ]
+}

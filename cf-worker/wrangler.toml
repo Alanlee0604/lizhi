@@ -1,0 +1,18 @@
+name = "lizhi-readonly-verify-probe-cron"
+main = "src/index.js"
+compatibility_date = "2026-11-09"
+
+# Cron is intentionally not enabled in this file.
+# Parent bot attaches `*/2 * * * *` after setting secrets. Do not wrangler deploy
+# from the isolated verify agent — enabling the timer is a parent-bot step.
+#
+# [triggers]
+# crons = ["*/2 * * * *"]
+
+# Required secrets / vars (never commit values):
+#   PROBE_URL                         https://lizhi-readonly-verify.vercel.app/api/probe
+#   PROBE_TOKEN                       same Bearer as the Vercel Function
+#   VERCEL_AUTOMATION_BYPASS_SECRET   official protection-bypass secret
+#   STOP_AT                           required parseable end time with timezone
+#                                     e.g. 2026-11-XXT21:00:00+08:00
+#                                     Activity end date is unresolved; do not hardcode.
