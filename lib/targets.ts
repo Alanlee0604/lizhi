@@ -21,6 +21,7 @@ export const DETAIL_URLS = [
 
 export const PROBE_TIMEOUT_MS = 110_000;
 export const SCRAPE_BUDGET_MS = 95_000;
+export const CHART_RESERVE_MS = 22_000;
 export const RATE_LIMIT_WINDOW_MS = 60_000;
 export const DEFAULT_INGEST_URL = "https://votes.alan0828.cloud/api/ingest";
 export const DEFAULT_STATE_URL = "https://votes.alan0828.cloud/api/state";

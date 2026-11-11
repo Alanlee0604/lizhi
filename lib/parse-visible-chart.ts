@@ -111,13 +111,24 @@ export function parsePlatformVotes(block: string): PlatformVotes {
 export function parseDetailPlatformVotes(visibleText: string): PlatformVotes {
   const read = (pattern: RegExp): number | null => {
     const match = visibleText.match(pattern);
-    return match ? parseVoteNumber(match[1]) : null;
+    const value = match ? parseVoteNumber(match[1]) : null;
+    if (value == null || value <= 0) return null;
+    return value;
   };
   return {
     aiLizhi: read(/ai\s*荔枝\s*[:：]?\s*([\d,]+)\s*票/i),
     kugou: read(/酷狗(?:音乐)?\s*[:：]?\s*([\d,]+)\s*票/),
     qqMusic: read(/QQ\s*音乐\s*[:：]?\s*([\d,]+)\s*票/i),
   };
+}
+
+export function isDetailDomHydrated(visibleText: string): boolean {
+  const target = identifyDetailTarget(visibleText);
+  if (!target) return false;
+  const platforms = parseDetailPlatformVotes(visibleText);
+  return [platforms.aiLizhi, platforms.kugou, platforms.qqMusic].every(
+    (value) => typeof value === "number" && value > 0,
+  );
 }
 
 export function identifyDetailTarget(visibleText: string): (typeof TARGET_SONGS)[number] | null {

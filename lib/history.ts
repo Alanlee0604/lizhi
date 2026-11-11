@@ -158,11 +158,17 @@ export function cellOrGap(
 }
 
 export function platformCell(
-  snapshot: { platforms: HistoryPlatforms } | null,
+  snapshot: { platforms: HistoryPlatforms; platformMiss?: string | null } | null,
   key: keyof HistoryPlatforms,
 ): string {
   if (!snapshot) return "缺口";
-  return displayCount(snapshot.platforms[key]);
+  const shown = displayCount(snapshot.platforms[key]);
+  if (snapshot.platforms[key] != null) return shown;
+  if (key === "aiLizhi" && snapshot.platformMiss) {
+    const reason = platformMissLabel(snapshot.platformMiss);
+    if (reason) return `${shown}（${reason}）`;
+  }
+  return shown;
 }
 
 export function platformFill(platforms: HistoryPlatforms): "all_numeric" | "all_null" | "mixed" {

@@ -1,5 +1,6 @@
 import chromium from "@sparticuz/chromium";
 import puppeteer, { type Browser, type Page } from "puppeteer-core";
+import { allocateDetailSlots, assignDetailsToSongs, platformsHydrated, slotDeadline } from "./detail-assign";
 import { identifyDetailTarget, looksLikeRestriction, parseSongDetail, readTargetSongs } from "./parse-visible-chart";
 import { platformsAllNumeric } from "./platform-miss";
 import { DETAIL_URLS, FINAL_URL, SCRAPE_BUDGET_MS, SOURCE_URL, TARGET_SONGS } from "./targets";
@@ -102,7 +103,17 @@ async function waitHydrated(page: Page, timeout: number) {
     (titles: string[]) => {
       const text = document.body?.innerText || "";
       const named = titles.some((title) => text.includes(title));
-      return named && !text.includes("歌曲名称") && /ai荔枝\s*[1-9][\d,]*\s*票/.test(text);
+      const positive = (pattern: string) => {
+        const match = text.match(new RegExp(pattern));
+        const value = match ? Number(String(match[1]).replace(/,/g, "")) : 0;
+        return Number.isFinite(value) && value > 0;
+      };
+      return (
+        named &&
+        positive("ai\\s*荔枝\\s*[:：]?\\s*([\\d,]+)\\s*票") &&
+        positive("酷狗(?:音乐)?\\s*[:：]?\\s*([\\d,]+)\\s*票") &&
+        positive("QQ\\s*音乐\\s*[:：]?\\s*([\\d,]+)\\s*票")
+      );
     },
     { timeout },
     TARGET_SONGS.map((song) => song.title),
@@ -111,21 +122,21 @@ async function waitHydrated(page: Page, timeout: number) {
 
 async function readPublicDetailUrl(browser: Browser, url: string, deadline: number): Promise<DetailRead> {
   const remaining = deadline - Date.now();
-  if (remaining < 12_000) {
+  if (remaining <= 0) {
     return {
       url,
       artistId: null,
       artist: null,
       title: null,
       ...emptyPlatforms("timeout"),
-      note: `${url} 剩余时间不足 ${remaining}ms，未打开详情。`,
+      note: `${url} 本槽时限已用尽，详情未读完。`,
     };
   }
 
   const page = await browser.newPage();
   await preparePage(page);
   try {
-    const response = await gotoWithRetry(page, url, Math.min(25_000, Math.max(8_000, remaining - 4_000)));
+        const response = await gotoWithRetry(page, url, Math.min(16_000, Math.max(4_000, remaining - 16_000)));
     const status = response?.status() ?? 0;
     if (status >= 400) {
       return {
@@ -138,12 +149,16 @@ async function readPublicDetailUrl(browser: Browser, url: string, deadline: numb
       };
     }
 
-    const hydrateMs = Math.min(14_000, Math.max(5_000, deadline - Date.now() - 3_000));
+    const hydrateMs = Math.min(12_000, Math.max(3_000, deadline - Date.now() - 4_000));
     try {
       await waitHydrated(page, hydrateMs);
     } catch {
-      await page.reload({ waitUntil: "domcontentloaded", timeout: 20_000 }).catch(() => undefined);
-      await waitHydrated(page, hydrateMs).catch(() => undefined);
+      const reloadMs = Math.min(8_000, Math.max(0, deadline - Date.now() - 4_000));
+      if (reloadMs > 1_000) {
+        await page.reload({ waitUntil: "domcontentloaded", timeout: reloadMs }).catch(() => undefined);
+        const secondHydrate = Math.min(10_000, Math.max(0, deadline - Date.now() - 1_000));
+        if (secondHydrate > 1_000) await waitHydrated(page, secondHydrate).catch(() => undefined);
+      }
     }
     await new Promise((r) => setTimeout(r, 600));
     await dismissNonVote(page);
@@ -167,20 +182,20 @@ async function readPublicDetailUrl(browser: Browser, url: string, deadline: numb
         artistId: null,
         artist: null,
         title: null,
-        ...emptyPlatforms("detail_load_failed"),
+        ...emptyPlatforms("detail_unidentified"),
         note: `${url} 终页未见安崎或黄灿灿歌名（textLen=${text.length} excerpt=${JSON.stringify(text.slice(0, 120))}）。`,
       };
     }
     const parsed = parseSongDetail(text, target);
     const platformSum =
       (parsed.platforms.aiLizhi || 0) + (parsed.platforms.kugou || 0) + (parsed.platforms.qqMusic || 0);
-    if (!platformsAllNumeric(parsed.platforms) || platformSum <= 0) {
+    if (!platformsHydrated(parsed.platforms)) {
       return {
         url,
         artistId: target.artistId,
         artist: target.artist,
         title: target.title,
-        platforms: platformSum <= 0 ? { ...EMPTY_PLATFORMS } : parsed.platforms,
+        platforms: { ...EMPTY_PLATFORMS },
         platformMiss: "page_has_no_breakdown",
         note: `${url} 已识别 ${target.artist}《${target.title}》，但没有完整三端分项（骨架屏 0 票不入库）。`,
       };
@@ -234,15 +249,18 @@ export async function scrapeVisibleChart(options: {
   try {
     browser = await launchBrowser();
 
+    const { perDetailMs } = allocateDetailSlots({ urlCount: DETAIL_URLS.length });
+    notes.push(`详情按 URL 均分时限 ${perDetailMs}ms，不把第一首的剩余时间留给第二首。`);
     const details: DetailRead[] = [];
     for (const url of DETAIL_URLS) {
-      details.push(await readPublicDetailUrl(browser, url, deadline));
+      details.push(await readPublicDetailUrl(browser, url, slotDeadline(Date.now(), perDetailMs)));
     }
     for (const detail of details) notes.push(detail.note);
 
     const page = await browser.newPage();
     await preparePage(page);
-    const response = await gotoWithRetry(page, SOURCE_URL, 45_000);
+    const chartTimeout = Math.max(8_000, Math.min(45_000, deadline - Date.now()));
+    const response = await gotoWithRetry(page, SOURCE_URL, chartTimeout);
     const status = response?.status() ?? 0;
     if (status >= 400) {
       return {
@@ -264,7 +282,7 @@ export async function scrapeVisibleChart(options: {
 
     await page.waitForFunction(
       () => document.body && document.body.innerText.includes("鲜打专区"),
-      { timeout: 25_000 },
+      { timeout: Math.min(25_000, Math.max(5_000, deadline - Date.now())) },
     );
     await new Promise((r) => setTimeout(r, 4_000));
     await dismissNonVote(page);
@@ -293,33 +311,17 @@ export async function scrapeVisibleChart(options: {
     }
 
     const parsed = readTargetSongs(chartText);
-    const detailByArtist = new Map<ArtistId, DetailRead>();
-    for (const detail of details) {
-      if (detail.artistId) detailByArtist.set(detail.artistId, detail);
-    }
-
-    const songs: SongReading[] = parsed.songs.map((song) => {
-      const detail = detailByArtist.get(song.artistId);
+    const songs: SongReading[] = assignDetailsToSongs(parsed.songs, details).map((song) => {
       if (!song.found) {
         notes.push(`${song.artist} 总榜行未见；总票成功不能当作三端成功。`);
       }
-      if (!detail) {
-        return {
-          ...song,
-          platforms: { ...EMPTY_PLATFORMS },
-          platformMiss: "not_attempted_detail",
-        };
-      }
-      return {
-        ...song,
-        platforms: detail.platforms,
-        platformMiss: detail.platformMiss,
-      };
+      return song;
     });
 
     for (const target of TARGET_SONGS) {
-      if (!detailByArtist.has(target.artistId)) {
-        notes.push(`${target.artist} 两条详情短链的可见 DOM 都未识别到该人，三端未采集到。`);
+      const bound = details.some((detail) => detail.artistId === target.artistId);
+      if (!bound) {
+        notes.push(`${target.artist} 详情短链可见 DOM 未识别到该人，已把该 URL 的真实缺失原因绑到此人，不再写成未尝试。`);
       }
     }
     if (songs.some((song) => !platformsAllNumeric(song.platforms))) {

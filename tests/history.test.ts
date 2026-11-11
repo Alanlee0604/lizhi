@@ -205,6 +205,70 @@ describe("history display", () => {
     assert.equal(anqi?.platformMissReason, null);
   });
 
+  it("annotates 2-minute table cells with the real miss instead of a generic 未采集到", () => {
+    assert.equal(
+      platformCell(
+        { platforms: { aiLizhi: null, kugou: null, qqMusic: null }, platformMiss: "timeout" },
+        "aiLizhi",
+      ),
+      "未采集到（详情读取超时）",
+    );
+    assert.equal(
+      platformCell(
+        { platforms: { aiLizhi: null, kugou: null, qqMusic: null }, platformMiss: "timeout" },
+        "kugou",
+      ),
+      "未采集到",
+    );
+  });
+
+  it("does not call a timed-out detail round 未尝试", () => {
+    const artist = overlayObservationPlatforms(
+      {
+        artistId: "anqi",
+        displayName: "安崎",
+        songTitle: "Ice In My Walk",
+        sampleCount: 1,
+        latest: snap({
+          id: "a",
+          artistId: "anqi",
+          sourceDisplayedUpdatedAt: "2026-11-11T06:40:00.000Z",
+          total: 136744,
+          rank: 2,
+        }),
+        freshness: null,
+        deltas: null,
+        platformMissReason: null,
+      },
+      [
+        {
+          collectedAt: "2026-11-11T06:46:05.000Z",
+          collectedLabel: "2026/11/11 14:46",
+          sourceDisplayedUpdatedAt: "2026-11-11T06:40:00.000Z",
+          sourceLabel: "2026/11/11 14:40",
+          sourceUnchanged: false,
+          anqi: {
+            id: "att-a",
+            artistId: "anqi",
+            total: 136744,
+            rank: 2,
+            platforms: { aiLizhi: null, kugou: null, qqMusic: null },
+            platformsStructured: true,
+            platformMiss: "timeout",
+            sourceDisplayedUpdatedAt: "2026-11-11T06:40:00.000Z",
+            collectedAt: "2026-11-11T06:46:05.000Z",
+            origin: "public_html",
+            liveCollector: true,
+            provenance: { observer: "vercel_function_chromium", notes: null, rawExcerpt: null, sourceId: null },
+          },
+          huangcancan: null,
+        },
+      ],
+    );
+    assert.equal(artist.platformMissReason, "详情读取超时");
+    assert.notEqual(artist.platformMissReason, "未尝试打开歌曲详情页");
+  });
+
   it("shows a miss reason instead of asserting 腾讯未提供", () => {
     const artist = overlayObservationPlatforms(
       {

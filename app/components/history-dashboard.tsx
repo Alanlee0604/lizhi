@@ -31,7 +31,8 @@ export function HistoryDashboard({ history }: { history: HistoryPayload }) {
         <p className="lede">
           只追踪这两人。页面只读共享原库 <code>{architecture.source}</code>
           ，<strong>不是迁库、不是复制搬库</strong>。折线横轴是<strong>检查时间（约每 {OBSERVATION_CADENCE_MINUTES}{" "}
-          分钟）</strong>，与<strong>源站更新时间（目前约 10 分钟一跳）</strong>不是同一件事。分项缺失显示「未采集到」并给出原因，缺检查显示「缺口」，都不会写成 0，也不断言腾讯未提供。
+          分钟）</strong>，与<strong>源站更新时间（目前约 10 分钟一跳）</strong>不是同一件事。卡片上的三端来自最近一次
+          2 分钟检查，不是源去重快照；源窗第一次入库失败后，旧库 UNIQUE 不会被后来成功覆盖。分项缺失显示「未采集到」并给出该轮真实原因，缺检查显示「缺口」，都不会写成 0，也不断言腾讯未提供。
         </p>
         <p className="meta">
           本页刷新 {history.fetchedAtBeijing}（北京时间）· 检查 {counts.observations} 轮（
@@ -130,7 +131,9 @@ export function HistoryDashboard({ history }: { history: HistoryPayload }) {
 
       <section>
         <h2>2 分钟观测明细</h2>
-        <p className="muted">每一行是一次检查（attempt.at）。「源未更新」表示源站时间与上一轮相同，票数仍是该轮 rawExcerpt 实读。</p>
+        <p className="muted">
+          每一行是一次检查（attempt.at）。「源未更新」表示源站时间与上一轮相同，票数仍是该轮 rawExcerpt 实读。三端空值旁会写出该轮 miss（超时 / 未识别 / 未尝试等），不再把已打开但失败的详情写成「未尝试」。
+        </p>
         <div className="table-wrap">
           <table>
             <thead>

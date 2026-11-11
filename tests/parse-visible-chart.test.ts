@@ -4,6 +4,7 @@ import { describe, it } from "node:test";
 import {
   extractFreshHitZone,
   identifyDetailTarget,
+  isDetailDomHydrated,
   looksLikeRestriction,
   parseDetailPlatformVotes,
   parsePlatformVotes,
@@ -98,5 +99,33 @@ describe("parse public song-detail text", () => {
     assert.equal(identifyDetailTarget(detailFixture)?.artistId, "huangcancan");
     assert.equal(identifyDetailTarget(anqiText)?.artistId, "anqi");
     assert.equal(identifyDetailTarget("第9期 鲜打专区 去支持"), null);
+  });
+
+  it("treats skeleton 0票 as not hydrated and not as real platform votes", () => {
+    const skeleton = `歌曲名称\n歌手名称\n0\n票\nai荔枝\n0票\n酷狗音乐\n0票\nQQ音乐\n0票`;
+    assert.equal(isDetailDomHydrated(skeleton), false);
+    assert.deepEqual(parseDetailPlatformVotes(skeleton), {
+      aiLizhi: null,
+      kugou: null,
+      qqMusic: null,
+    });
+  });
+
+  it("reads the 11/11 14:58 安崎 browser-visible 三端 and requires all three > 0", () => {
+    const anqi1458 = `Ice In My Walk\n安崎\n138612\n票\n14:50 已更新\nNO. 2\nai荔枝\n13717票\n酷狗音乐\n37605票\nQQ音乐\n87290票`;
+    assert.equal(identifyDetailTarget(anqi1458)?.artistId, "anqi");
+    assert.equal(isDetailDomHydrated(anqi1458), true);
+    assert.deepEqual(parseDetailPlatformVotes(anqi1458), {
+      aiLizhi: 13717,
+      kugou: 37605,
+      qqMusic: 87290,
+    });
+    const parsed = parseSongDetail(anqi1458, { title: "Ice In My Walk", artist: "安崎" });
+    assert.equal(parsed.totalVotes, 138612);
+    assert.equal(parsed.rank, 2);
+    assert.equal(
+      (parsed.platforms.aiLizhi || 0) + (parsed.platforms.kugou || 0) + (parsed.platforms.qqMusic || 0),
+      138612,
+    );
   });
 });

@@ -1,6 +1,7 @@
 export const PLATFORM_MISS = {
   not_attempted_detail: "未尝试打开歌曲详情页",
   detail_load_failed: "详情页加载失败",
+  detail_unidentified: "详情页已打开，但未见对应歌手/歌名",
   login_required: "详情页需登录后才可见分项",
   page_has_no_breakdown: "详情页可见，但没有三端分项数字",
   timeout: "详情读取超时",
@@ -18,6 +19,6 @@ export function platformMissLabel(code: string | null | undefined): string | nul
 
 export function platformsAllNumeric(platforms: { aiLizhi: number | null; kugou: number | null; qqMusic: number | null }): boolean {
   return [platforms.aiLizhi, platforms.kugou, platforms.qqMusic].every(
-    (value) => typeof value === "number" && Number.isFinite(value),
+    (value) => typeof value === "number" && Number.isFinite(value) && value > 0,
   );
 }
