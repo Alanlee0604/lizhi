@@ -49,12 +49,14 @@ export async function POST(request: Request) {
     if (result.ok) {
       result.ingest = await postIngest(result);
       if (result.ingest.skipped) {
-        result.notes.push("INGEST_TOKEN 未配置，已跳过入库。");
+        result.notes.push(`可入库行未写出：${result.ingest.reason || "skipped"}。失败可见，未默默丢弃。`);
       } else if (!result.ingest.ok) {
         result.notes.push(`入库失败：${result.ingest.reason}`);
       } else {
-        result.notes.push("已 POST 到 votes ingest。");
+        result.notes.push("已把本轮可持久化行 POST 到 votes ingest（201 新样本 / 200 源窗去重）。");
       }
+    } else {
+      result.notes = [...(result.notes || []), "整轮没有可入库的真实总票，未调用 ingest。"];
     }
     return Response.json(result, { status: result.ok ? 200 : 503 });
   } catch (error) {

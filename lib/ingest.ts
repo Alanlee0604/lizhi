@@ -24,32 +24,26 @@ export type IngestArtistRecord = {
   rawExcerpt: string;
 };
 
-function nonNegativeIntOrNull(value: number | null | undefined): number | null {
-  if (value == null) return null;
-  if (!Number.isInteger(value) || value < 0) return null;
-  return value;
-}
-
 function platformsFor(song: SongReading): IngestArtistRecord["platforms"] {
   return {
-    aiLizhi: nonNegativeIntOrNull(song.platforms.aiLizhi),
-    kugou: nonNegativeIntOrNull(song.platforms.kugou),
-    qqMusic: nonNegativeIntOrNull(song.platforms.qqMusic),
+    aiLizhi: isPositiveInt(song.platforms.aiLizhi) ? song.platforms.aiLizhi : null,
+    kugou: isPositiveInt(song.platforms.kugou) ? song.platforms.kugou : null,
+    qqMusic: isPositiveInt(song.platforms.qqMusic) ? song.platforms.qqMusic : null,
   };
 }
 
 export function buildIngestRecords(result: ProbeSuccess): IngestArtistRecord[] {
-  const sourceDisplayedUpdatedAt = combineShanghaiClock(
-    result.sourceUpdateText,
-    new Date(result.collectedAtUtc),
-  );
-  if (!sourceDisplayedUpdatedAt) return [];
-
+  const collectedAt = new Date(result.collectedAtUtc);
   const records: IngestArtistRecord[] = [];
   for (const song of result.songs) {
     if (!song.found) continue;
     if (!ALLOWED_ARTIST_IDS.has(song.artistId)) continue;
     if (!isPositiveInt(song.totalVotes)) continue;
+    const sourceDisplayedUpdatedAt = combineShanghaiClock(
+      song.sourceUpdateText || result.sourceUpdateText,
+      collectedAt,
+    );
+    if (!sourceDisplayedUpdatedAt) continue;
     records.push({
       artistId: song.artistId,
       total: song.totalVotes,
@@ -65,7 +59,7 @@ export function buildIngestRecords(result: ProbeSuccess): IngestArtistRecord[] {
         ? `visible public chart + song-detail DOM; 三端未采集到：${song.platformMiss}；null 不是 0，不断言腾讯未提供`
         : "visible public chart + song-detail DOM; obsj in rawExcerpt is this-round platforms from the public detail page",
       rawExcerpt: encodeObservationExcerpt({
-        sourceUpdateText: result.sourceUpdateText,
+        sourceUpdateText: song.sourceUpdateText || result.sourceUpdateText,
         artist: song.artist,
         title: song.title,
         rank: isPositiveInt(song.rank) ? song.rank : null,

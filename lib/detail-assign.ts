@@ -8,6 +8,10 @@ export type DetailBind = {
   artistId: ArtistId | null;
   platforms: PlatformVotes;
   platformMiss: string | null;
+  totalVotes?: number | null;
+  rank?: number | null;
+  sourceUpdateText?: string | null;
+  note?: string;
 };
 
 export function allocateDetailSlots(input: {
@@ -43,7 +47,12 @@ export function assignDetailsToSongs(songs: SongReading[], details: DetailBind[]
   return songs.map((song) => {
     const hit = byArtist.get(song.artistId);
     if (hit) {
-      return { ...song, platforms: hit.platforms, platformMiss: hit.platformMiss };
+      return {
+        ...song,
+        platforms: hit.platforms,
+        platformMiss: hit.platformMiss,
+        sourceUpdateText: hit.sourceUpdateText ?? song.sourceUpdateText,
+      };
     }
     const leftover = unbound.shift();
     if (leftover) {

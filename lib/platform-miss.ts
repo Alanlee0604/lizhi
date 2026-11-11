@@ -5,6 +5,7 @@ export const PLATFORM_MISS = {
   login_required: "详情页需登录后才可见分项",
   page_has_no_breakdown: "详情页可见，但没有三端分项数字",
   timeout: "详情读取超时",
+  chart_load_failed: "总榜读取失败",
   restriction: "详情页出现验证码或风控",
   unstructured_total_only: "该轮只记录了总票，未尝试读取详情",
 } as const;
